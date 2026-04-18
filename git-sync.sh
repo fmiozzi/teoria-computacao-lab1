@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-
-#git pull --rebase origin main
-#chmod +x git-sync.sh
+set -e
 
 echo "🔄 Git Sync iniciado..."
 
@@ -11,27 +9,41 @@ if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
     exit 1
 fi
 
-# vai para raiz do repo (evita erro de subpasta)
-cd "$(git rev-parse --show-toplevel)"
+# vai para raiz do repo
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 
-echo "📂 Repo: $(pwd)"
+echo "📂 Repo: $REPO_ROOT"
 
-# adiciona TUDO (novos, modificados e removidos)
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+echo "🌿 Branch atual: $CURRENT_BRANCH"
+
+echo "⬇️ Atualizando repositório remoto..."
+git pull --rebase origin "$CURRENT_BRANCH" || {
+    echo "❌ Erro no git pull --rebase. Resolva conflitos manualmente."
+    exit 1
+}
+
+# mostra arquivos ignorados
+echo "🚫 Arquivos ignorados (.gitignore):"
+git status --short --ignored
+
+# adiciona tudo
 git add -A
 
 echo "📦 Arquivos preparados:"
 git status --short
 
-# verifica se tem algo para commitar
+# verifica se há mudanças
 if git diff --cached --quiet; then
     echo "⚠️ Nada para sincronizar"
     exit 0
 fi
 
-# commit automático com timestamp
-git commit -m "sync: $(date '+%Y-%m-%d %H:%M:%S')"
+COMMIT_MSG="sync: $(date '+%Y-%m-%d %H:%M:%S')"
+git commit -m "$COMMIT_MSG"
 
-# envia para o GitHub
-git push
+echo "⬆️ Enviando para o remoto..."
+git push origin "$CURRENT_BRANCH"
 
 echo "✅ Sync concluído com sucesso!"

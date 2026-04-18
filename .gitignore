@@ -1,0 +1,6 @@
+dist-newstyle/
+*.hi
+*.o
+*.exe
+.envrc
+.DS_Store
