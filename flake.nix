@@ -1,5 +1,5 @@
 {
-  description = "Lab 1 - Haskell";
+  description = "Laboratório 1 — Teoria da Computação: Conversão de Autômatos Finitos e Expressões Regulares";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11"; # versão fixa = reprodutibilidade

@@ -1,23 +1,42 @@
 cabal-version:       2.4
 name:                lab1
-version:             0.1.0.0
+version:             1.0.0
+synopsis:            Conversão de Autômatos Finitos e Expressões Regulares
+description:
+  Laboratório 1 — Teoria da Computação (Mestrado)
+  Parte 1: Conversão NFAε → NFA → DFA (construção de subconjuntos + minimização)
+  Parte 2: Expressões Regulares → NFAε (construção de Thompson)
+author:              Flavio Miozzi
+maintainer:          flavio.mb@fortlev.com.br
 build-type:          Simple
 
+-- ================================================================
+-- Parte 1: NFAε → DFA
+-- Uso: cabal run lab1 -- input/arquivo.yaml output/arquivo.yaml
+-- ================================================================
 executable lab1
   main-is:             Main.hs
+  hs-source-dirs:      src
   build-depends:
-      base >=4.17 && <4.18,
-      yaml,
-      aeson,
-      bytestring,
-      containers
+      base       >= 4.17 && < 4.18
+    , yaml
+    , aeson
+    , bytestring
+    , containers
   default-language:    Haskell2010
+  ghc-options:         -Wall
 
+-- ================================================================
+-- Parte 2: Expressão Regular → NFAε
+-- Uso: cabal run lab1-part2 -- "<regex>" output/arquivo.yaml
+-- ================================================================
 executable lab1-part2
-  main-is:             lab1_part2_regex.hs
+  main-is:             Regex.hs
+  hs-source-dirs:      src
   build-depends:
-      base >=4.17 && <4.18,
-      yaml,
-      aeson,
-      containers
+      base       >= 4.17 && < 4.18
+    , yaml
+    , aeson
+    , containers
   default-language:    Haskell2010
+  ghc-options:         -Wall

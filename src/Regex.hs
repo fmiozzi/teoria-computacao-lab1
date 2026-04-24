@@ -1,8 +1,10 @@
--- Flavioooo
--- Motor de geração de autômatos baseado em expressões regulares.
+-- Laboratório 1 — Teoria da Computação (Mestrado)
+-- Parte 2: Geração de NFA-ε a partir de Expressão Regular
+--
 -- Converte uma regex em NFA-ε usando a Construção de Thompson,
 -- e salva o resultado em YAML compatível com o formato de Main.hs.
--- Uso: ./lab1_part2 "<regex>" output.yaml
+--
+-- Uso  : cabal run lab1-part2 -- "<regex>" output.yaml
 -- Fluxo: regex (string) → AST → NFA-ε (Thompson) → YAML
 
 -- Habilita OverloadedStrings para usar literais de string como Text/ByteString

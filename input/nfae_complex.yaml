@@ -1,0 +1,65 @@
+# Autômato NFAε — Exemplo complexo (13 estados, alfabeto {a, b, c})
+#
+# Linguagem reconhecida:
+#   Cadeias sobre {a,b,c} que começam com "ab" ou "cb",
+#   contêm pelo menos um "c" no meio, e terminam com "ba" ou "cc".
+#
+# Demonstra: múltiplas transições epsilon e não-determinismo.
+
+type: nfae
+alphabet: ["a", "b", "c"]
+states: ["q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12"]
+initial_state: "q0"
+final_states: ["q12"]
+transitions:
+  - from: "q0"
+    symbol: "epsilon"
+    to: ["q1", "q3"]
+  - from: "q1"
+    symbol: "a"
+    to: ["q2"]
+  - from: "q2"
+    symbol: "b"
+    to: ["q5"]
+  - from: "q3"
+    symbol: "c"
+    to: ["q4"]
+  - from: "q4"
+    symbol: "b"
+    to: ["q5"]
+  - from: "q5"
+    symbol: "epsilon"
+    to: ["q6"]
+  - from: "q6"
+    symbol: "a"
+    to: ["q6"]
+  - from: "q6"
+    symbol: "b"
+    to: ["q6"]
+  - from: "q6"
+    symbol: "c"
+    to: ["q6", "q7"]
+  - from: "q7"
+    symbol: "a"
+    to: ["q7"]
+  - from: "q7"
+    symbol: "b"
+    to: ["q7"]
+  - from: "q7"
+    symbol: "c"
+    to: ["q7"]
+  - from: "q7"
+    symbol: "epsilon"
+    to: ["q8", "q10"]
+  - from: "q8"
+    symbol: "b"
+    to: ["q9"]
+  - from: "q9"
+    symbol: "a"
+    to: ["q12"]
+  - from: "q10"
+    symbol: "c"
+    to: ["q11"]
+  - from: "q11"
+    symbol: "c"
+    to: ["q12"]

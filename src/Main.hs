@@ -7,8 +7,6 @@ import Data.Yaml
 -- Importa funções e operadores para parsing/serialização JSON (base do YAML)
 -- FromJSON e ToJSON são typeclasses; (.:) lê campos; (.=) e object criam objetos JSON
 import Data.Aeson (FromJSON(..), ToJSON(..), (.:), (.=), object, withObject)
--- Importa ByteString qualificado (usado internamente pelo Data.Yaml)
-import qualified Data.ByteString as BS
 -- nub: remove duplicatas; sort: ordena; intercalate: junta com separador
 -- groupBy: agrupa elementos consecutivos iguais; sortBy: ordena com comparador
 -- findIndex: retorna o índice do primeiro elemento que satisfaz um predicado

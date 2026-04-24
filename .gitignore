@@ -1,6 +1,32 @@
+# Haskell / Cabal build artifacts
 dist-newstyle/
+.stack-work/
 *.hi
 *.o
+*.dyn_hi
+*.dyn_o
 *.exe
+cabal.project.local
+cabal.project.local~
+.ghc.environment.*
+
+# Nix build results
+result
+result-*
+
+# Arquivos de saída gerados (não versionados; versionados apenas os exemplos)
+output/*.yaml
+output/*.yml
+!output/.gitkeep
+
+# Temporários e backups
+*.bkp
+*.tmp
+*~
+
+# Editor
+.vscode/
+.idea/
+*.swp
 .envrc
 .DS_Store
