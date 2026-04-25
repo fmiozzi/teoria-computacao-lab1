@@ -11,8 +11,8 @@ maintainer:          flavio.mb@fortlev.com.br
 build-type:          Simple
 
 -- ================================================================
--- Parte 1: NFAε → DFA
--- Uso: cabal run lab1 -- input/arquivo.yaml output/arquivo.yaml
+-- Parte 1: NFAε / NFA / DFA → DFA mínimo
+-- Uso: cabal run lab1 -- input/arquivo.yaml output/arquivo_nfa.yaml output/arquivo_dfa.yaml
 -- ================================================================
 executable lab1
   main-is:             Main.hs
@@ -35,8 +35,5 @@ executable lab1-part2
   hs-source-dirs:      src
   build-depends:
       base       >= 4.17 && < 4.18
-    , yaml
-    , aeson
-    , containers
   default-language:    Haskell2010
   ghc-options:         -Wall

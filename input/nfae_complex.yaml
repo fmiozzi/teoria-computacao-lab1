@@ -2,7 +2,7 @@
 #
 # Linguagem reconhecida:
 #   Cadeias sobre {a,b,c} que começam com "ab" ou "cb",
-#   contêm pelo menos um "c" no meio, e terminam com "ba" ou "cc".
+#   passam por pelo menos um "c" no meio, e terminam com "ba" ou "cc".
 #
 # Demonstra: múltiplas transições epsilon e não-determinismo.
 

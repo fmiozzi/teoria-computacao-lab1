@@ -7,15 +7,8 @@
 -- Uso  : cabal run lab1-part2 -- "<regex>" output.yaml
 -- Fluxo: regex (string) → AST → NFA-ε (Thompson) → YAML
 
--- Habilita OverloadedStrings para usar literais de string como Text/ByteString
-{-# LANGUAGE OverloadedStrings #-}
-
--- Serialização e escrita de arquivos YAML
-import Data.Yaml (encodeFile)
--- Operadores e funções para montar objetos JSON/YAML
-import Data.Aeson (ToJSON(..), (.=), object)
 -- nub: remove duplicatas; sort: ordena; intercalate: junta com separador
-import Data.List (nub, sort)
+import Data.List (nub, sort, intercalate)
 -- Leitura dos argumentos da linha de comando
 import System.Environment (getArgs)
 
@@ -39,10 +32,10 @@ data Regex
 -- Converte a string da regex em uma AST (Regex)
 --
 -- Gramática (precedência crescente, menor para maior):
---   expr   ::= term ('|' term)*        ← menor: união
---   term   ::= factor+                 ← médio: concatenação
---   factor ::= atom ('*'|'+'|'?')*     ← alto: sufixos
---   atom   ::= char | '(' expr ')'     ← maior: átomos
+--   expr   ::= term ('|' term)*          ← menor: união
+--   term   ::= factor+                   ← médio: concatenação
+--   factor ::= atom ('*'|'+'|'?')*       ← alto: sufixos
+--   atom   ::= char | '(' expr ')' | ⊥  ← maior: átomos; ⊥ = erro p/ operadores fora de posição
 -- =============================
 
 -- Tipo de resultado do parser: ou erro ou (valor, resto da string não consumida)
@@ -96,14 +89,21 @@ parseSuffix r ('+':rest) = parseSuffix (RPlus r) rest  -- uma ou mais repetiçõ
 parseSuffix r ('?':rest) = parseSuffix (ROpt  r) rest  -- opcional
 parseSuffix r rest       = Right (r, rest)             -- nenhum sufixo: retorna como está
 
--- Parseia um átomo: caractere literal ou subexpressão entre parênteses
+-- Parseia um átomo: caractere literal ou subexpressão entre parênteses.
+-- Operadores de maior precedência ('|', '*', '+', '?') em posição de átomo
+-- indicam erro de sintaxe — o parser os rejeita explicitamente para garantir
+-- robustez (ex: "*a", "|b", "a||b" produzem mensagens de erro claras).
 parseAtom :: String -> ParseResult Regex
 parseAtom ('(':rest) = do
   (e, rest2) <- parseExpr rest          -- parseia a subexpressão interna
   case rest2 of
     (')':rest3) -> Right (e, rest3)     -- consome o ')' de fechamento
     _           -> Left "Parêntese de fechamento esperado"
-parseAtom [] = Left "Fim inesperado da entrada"  -- string acabou sem um átomo
+parseAtom []       = Left "Fim inesperado da entrada"
+parseAtom ('|':_)  = Left "Operador '|' em posição inválida: falta termo à esquerda"
+parseAtom ('*':_)  = Left "Operador '*' em posição inválida: requer átomo precedente"
+parseAtom ('+':_)  = Left "Operador '+' em posição inválida: requer átomo precedente"
+parseAtom ('?':_)  = Left "Operador '?' em posição inválida: requer átomo precedente"
 parseAtom (c:rest) = Right (RChar c, rest)       -- caractere literal
 
 -- =============================
@@ -220,31 +220,46 @@ data Automaton = Automaton
   } deriving (Show, Eq)
 
 -- =============================
--- Instâncias ToJSON (serialização para YAML)
--- Mesmo formato de Main.hs para compatibilidade
+-- Serializador YAML customizado
+-- Produz o mesmo formato de Main.hs: arrays inline, chaves na ordem
+-- canônica e aspas duplas em todos os valores de string.
 -- =============================
 
--- Serializa o tipo do autômato como string YAML
-instance ToJSON AutomatonType where
-  toJSON NFAE = "nfae"
-  toJSON NFA  = "nfa"
-  toJSON DFA  = "dfa"
+-- Converte o tipo do autômato para a string YAML correspondente
+autoTypeToStr :: AutomatonType -> String
+autoTypeToStr DFA  = "dfa"
+autoTypeToStr NFA  = "nfa"
+autoTypeToStr NFAE = "nfae"
 
--- Serializa uma transição como objeto YAML com campos from, symbol, to
-instance ToJSON Transition where
-  toJSON (Transition f s t) =
-    object ["from" .= f, "symbol" .= s, "to" .= t]
+-- Envolve uma string em aspas duplas, escapando '"' e '\' internos
+yamlQuote :: String -> String
+yamlQuote s = "\"" ++ concatMap escape s ++ "\""
+  where
+    escape '"'  = "\\\""
+    escape '\\' = "\\\\"
+    escape c    = [c]
 
--- Serializa o autômato completo como objeto YAML
-instance ToJSON Automaton where
-  toJSON a =
-    object [ "type"          .= autoType a
-           , "alphabet"      .= alphabet a
-           , "states"        .= states a
-           , "initial_state" .= initialState a
-           , "final_states"  .= finalStates a
-           , "transitions"   .= transitions a
-           ]
+-- Produz um array YAML no estilo inline: ["a", "b", "c"]
+yamlInlineList :: [String] -> String
+yamlInlineList xs = "[" ++ intercalate ", " (map yamlQuote xs) ++ "]"
+
+-- Serializa uma transição como bloco indentado de 2 espaços
+transitionToYaml :: Transition -> String
+transitionToYaml t =
+  "  - from: "   ++ yamlQuote (tranFrom   t) ++ "\n" ++
+  "    symbol: " ++ yamlQuote (tranSymbol t) ++ "\n" ++
+  "    to: "     ++ yamlInlineList (tranTo t) ++ "\n"
+
+-- Serializa o Automaton completo na ordem canônica de Main.hs:
+-- type → alphabet → states → initial_state → final_states → transitions
+formatAutomaton :: Automaton -> String
+formatAutomaton a =
+  "type: "          ++ autoTypeToStr (autoType a)     ++ "\n" ++
+  "alphabet: "      ++ yamlInlineList (alphabet a)    ++ "\n" ++
+  "states: "        ++ yamlInlineList (states a)      ++ "\n" ++
+  "initial_state: " ++ yamlQuote (initialState a)     ++ "\n" ++
+  "final_states: "  ++ yamlInlineList (finalStates a) ++ "\n" ++
+  "transitions:\n"  ++ concatMap transitionToYaml (transitions a)
 
 -- =============================
 -- Funções auxiliares de conversão
@@ -317,11 +332,11 @@ main = do
         Right regex -> do
           let (frag, totalStates) = build regex 0    -- constrói o NFA-ε a partir do estado q0
           let automaton = fragToAutomaton frag regex  -- converte para o formato Automaton
-          encodeFile output automaton                 -- escreve o YAML no arquivo de saída
+          writeFile output (formatAutomaton automaton) -- escreve o YAML no formato canônico
           putStrLn ("✅ NFA-ε gerado em: " ++ output)
           putStrLn ("   Regex    : " ++ regexStr)
           putStrLn ("   Alfabeto : " ++ show (alphabet automaton))
           putStrLn ("   Estados  : " ++ show totalStates)
-          putStrLn ("   (use Main.hs para converter para DFA)")
+          putStrLn ("   (use ./run.sh para converter o NFAε em DFA mínimo)")
     -- Número errado de argumentos: exibe instrução de uso
     _ -> putStrLn "Uso: ./lab1_part2 \"<regex>\" output.yaml"

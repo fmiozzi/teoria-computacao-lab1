@@ -148,11 +148,11 @@ removeEpsilon auto =
     -- lendo a a partir de qualquer estado na ε-closure de s
     newTransitions =
       nub  -- remove transições duplicadas
-        [ Transition s a (nub targets)  -- cria transição sem epsilon
-        | s <- states auto              -- para cada estado do autômato
-        , a <- alphabet auto            -- para cada símbolo do alfabeto
-        , let closureStates = cls s     -- calcula a ε-closure de s
-        , let targets =
+        [ Transition s a (nub finalTargets)  -- cria transição sem epsilon
+        | s <- states auto                   -- para cada estado do autômato
+        , a <- alphabet auto                 -- para cada símbolo do alfabeto
+        , let closureStates = cls s          -- ε-closure da origem: ε-closure(q)
+        , let rawTargets =
                 concat
                   [ to t
                   | q <- closureStates     -- para cada estado na ε-closure de s
@@ -160,7 +160,9 @@ removeEpsilon auto =
                   , from t == q            -- que partem de q
                   , symbol t == a          -- lendo o símbolo a
                   ]
-        , not (null targets)  -- só inclui a transição se houver destinos
+        -- δ'(q,a) = ε-closure(∪{δ(p,a) | p ∈ ε-closure(q)}): aplica ε-closure nos destinos
+        , let finalTargets = concatMap cls rawTargets
+        , not (null finalTargets)  -- só inclui a transição se houver destinos
         ]
 
     -- Um estado s passa a ser final se algum estado em sua ε-closure era final no original
@@ -232,8 +234,11 @@ subsetConstruction nfa =
           in go (queue ++ next) (q : visited)
 
     -- Conjunto de todos os estados do DFA (descobertos pelo BFS).
-    -- O conjunto vazio [] (estado morto) é excluído: transições ausentes
-    -- já implicam rejeição, então exibi-lo sem entradas seria inconsistente.
+    -- Decisão de projeto: o estado morto (conjunto vazio []) é excluído
+    -- intencionalmente, produzindo um DFA incompleto (parcial). Esta simplificação
+    -- reduz o número de estados sem afetar a correção do reconhecimento —
+    -- transições ausentes equivalem implicitamente à rejeição. Avaliado e
+    -- adotado como forma de simplificação do resultado gerado, conforme discutido em aula.
     dfaStates = filter (not . null) (go [start] [])
 
     -- Estados finais do DFA: conjuntos que contêm pelo menos um estado final do NFA
@@ -252,9 +257,20 @@ subsetConstruction nfa =
       , not (null t)                                     -- ignora transições para conjunto vazio
       ]
 
+-- Compara nomes de estados do DFA por cardinalidade do conjunto NFA codificado
+-- e depois lexicograficamente. Evita a armadilha da ordem ASCII em que
+-- "{q0,q1}" < "{q0}" porque ',' (44) < '}' (125), o que produziria
+-- representantes contra-intuitivos na minimização (ex.: estado inicial nomeado
+-- com um conjunto maior em vez do singleton).
+compareStateNames :: State -> State -> Ordering
+compareStateNames a b = compare (stateCount a, a) (stateCount b, b)
+  where
+    stateCount "{}" = 0 :: Int
+    stateCount s    = 1 + length (filter (== ',') s)
+
 -- =============================
 -- Minimização do DFA
--- Algoritmo de refinamento de partições:
+-- Algoritmo de refinamento de partições (Hopcroft simplificado):
 -- começa com {estados finais} e {estados não-finais} e divide grupos
 -- cujos estados têm comportamentos distintos, até a partição estabilizar.
 -- Cada grupo final vira um único estado no DFA mínimo.
@@ -297,17 +313,20 @@ minimizeDFA dfa = buildMinDFA finalPartition
     -- Aplica uma rodada de refinamento em toda a partição
     refineOnce p = concatMap (refineGroup p) p
 
-    -- Repete o refinamento até a partição não mudar mais (estabilização)
+    -- Repete o refinamento até a partição não mudar mais (estabilização).
+    -- Refinamento só divide grupos, nunca une; portanto p' == p é condição
+    -- necessária e suficiente para convergência (mais preciso que comparar length).
     refineUntilStable p =
       let p' = refineOnce p
-      in if length p' == length p then p else refineUntilStable p'
+      in if p' == p then p else refineUntilStable p'
 
     finalPartition = refineUntilStable initialPartition
 
     -- Constrói o DFA minimizado a partir da partição final estável
     buildMinDFA partition =
-      let -- Usa o menor estado (lexicográfico) como representante do grupo
-          rep grp    = head (sort grp)
+      let -- Usa o estado de menor cardinalidade (e depois lexicográfico) como
+          -- representante do grupo, via compareStateNames, evitando a armadilha ASCII.
+          rep grp    = head (sortBy compareStateNames grp)
           -- Encontra o representante do grupo ao qual s pertence
           repOf s    = rep $ head [g | g <- partition, s `elem` g]
           newStates  = sort (map rep partition)               -- um estado por grupo
@@ -373,33 +392,55 @@ formatAutomaton a =
 
 -- =============================
 -- MAIN
--- Ponto de entrada do programa
--- Lê um autômato de um arquivo YAML, converte para DFA e salva o resultado
+-- Ponto de entrada do programa.
+-- Lê um autômato de um arquivo YAML, executa o pipeline adequado ao tipo
+-- da entrada e salva dois arquivos: o autômato intermediário (NFA sem ε)
+-- e o DFA mínimo final.
+--
+-- Uso: ./run.sh input.yaml output_nfa.yaml output_dfa.yaml
 -- =============================
 
 main :: IO ()
 main = do
-  -- Lê os argumentos da linha de comando
   args <- getArgs
   case args of
-    -- Espera exatamente dois argumentos: arquivo de entrada e de saída
-    [input, output] -> do
-      -- Tenta decodificar o arquivo YAML de entrada como um Automaton
+    -- Espera exatamente três argumentos: entrada, saída NFA e saída DFA
+    [input, outputNfa, outputDfa] -> do
       result <- decodeFileEither input
       case result of
-        -- Se falhou no parse, imprime o erro
         Left err -> print err
-        -- Se leu com sucesso, realiza a conversão
         Right auto -> do
-          -- Passo 1: remove transições epsilon (NFA-ε → NFA)
-          let nfa    = removeEpsilon auto
-          -- Passo 2: aplica construção de subconjuntos (NFA → DFA)
-          let dfa    = subsetConstruction nfa
-          -- Passo 3: minimiza o DFA fundindo estados equivalentes
-          let minDfa = minimizeDFA dfa
-          -- Salva o DFA mínimo no arquivo de saída no mesmo formato do input
-          writeFile output (formatAutomaton minDfa)
-          -- Informa ao usuário que a conversão foi concluída com sucesso
-          putStrLn "✅ Conversão concluída!"
-    -- Se o número de argumentos for diferente de 2, exibe instruções de uso
-    _ -> putStrLn "Uso: ./run.sh input.yaml output.yaml"
+          case autoType auto of
+
+            -- Entrada já é DFA: a remoção de epsilon e a construção de
+            -- subconjuntos não se aplicam. Exporta o próprio DFA como
+            -- "intermediário" e aplica minimização diretamente.
+            DFA -> do
+              let minDfa = minimizeDFA auto
+              writeFile outputNfa (formatAutomaton auto)
+              writeFile outputDfa (formatAutomaton minDfa)
+              putStrLn "✅ Entrada já é um DFA — minimização aplicada."
+
+            -- Entrada é NFA (sem transições epsilon): pula removeEpsilon.
+            -- Exporta o NFA original como intermediário e aplica
+            -- construção de subconjuntos + minimização.
+            NFA -> do
+              let dfa    = subsetConstruction auto
+              let minDfa = minimizeDFA dfa
+              writeFile outputNfa (formatAutomaton auto)
+              writeFile outputDfa (formatAutomaton minDfa)
+              putStrLn "✅ NFA → DFA concluído."
+
+            -- Entrada é NFAε: pipeline completo.
+            -- Passo 1 — removeEpsilon  : NFAε → NFA
+            -- Passo 2 — subsetConstruction: NFA → DFA
+            -- Passo 3 — minimizeDFA    : DFA → DFA mínimo
+            NFAE -> do
+              let nfa    = removeEpsilon auto
+              let dfa    = subsetConstruction nfa
+              let minDfa = minimizeDFA dfa
+              writeFile outputNfa (formatAutomaton nfa)
+              writeFile outputDfa (formatAutomaton minDfa)
+              putStrLn "✅ NFAε → NFA → DFA mínimo concluído."
+
+    _ -> putStrLn "Uso: ./run.sh input.yaml output_nfa.yaml output_dfa.yaml"

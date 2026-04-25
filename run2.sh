@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# run2.sh — Parte 2: converte uma Expressão Regular diretamente em DFA.
-#            Pipeline: Regex → NFAε (Thompson) → NFA → DFA (subconjuntos + minimização)
+# run2.sh — Parte 2: converte uma Expressão Regular diretamente em DFA mínimo.
+#            Pipeline completo:
+#              Regex → NFAε (Thompson/lab1-part2)
+#                    → NFA  (removeEpsilon/lab1)   → output_nfa.yaml
+#                    → DFA mínimo (subconjuntos + minimização/lab1) → output_dfa.yaml
 #
 # Uso:
-#   ./run2.sh "<regex>" [output.yaml]
+#   ./run2.sh "<regex>" [output_nfa.yaml] [output_dfa.yaml]
 #
 # Exemplos:
 #   ./run2.sh "(a|b)*abb"
-#   ./run2.sh "a*b+c?" output/resultado.yaml
+#   ./run2.sh "a*b+c?" output/resultado_nfa.yaml output/resultado_dfa.yaml
 #
 # Operadores suportados:
 #   Concatenação : justaposição  (ab)
@@ -19,17 +22,19 @@ set -e
 
 cd "$(dirname "$0")"
 
-REGEX=${1:?"Uso: ./run2.sh '<regex>' [output.yaml]"}
-OUTPUT=${2:-output/result.yaml}
-NFA_TMP=$(mktemp /tmp/nfa_XXXXXX.yaml)
+REGEX=${1:?"Uso: ./run2.sh '<regex>' [output_nfa.yaml] [output_dfa.yaml]"}
+OUTPUT_NFA=${2:-output/result_nfa.yaml}
+OUTPUT_DFA=${3:-output/result_dfa.yaml}
+NFAE_TMP=$(mktemp /tmp/nfae_XXXXXX.yaml)
 
-echo "🔤 Regex : $REGEX"
-echo "📤 Output: $OUTPUT"
+echo "🔤 Regex      : $REGEX"
+echo "📤 Output NFA : $OUTPUT_NFA"
+echo "📤 Output DFA : $OUTPUT_DFA"
 echo ""
 
 nix develop --command bash -c "
-  cabal run lab1-part2 -- '$REGEX' '$NFA_TMP' &&
-  cabal run lab1       -- '$NFA_TMP' '$OUTPUT'
+  cabal run lab1-part2 -- '$REGEX' '$NFAE_TMP' &&
+  cabal run lab1       -- '$NFAE_TMP' '$OUTPUT_NFA' '$OUTPUT_DFA'
 "
 
-rm -f "$NFA_TMP"
+rm -f "$NFAE_TMP"
