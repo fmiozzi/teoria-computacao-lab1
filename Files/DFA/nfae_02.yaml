@@ -1,0 +1,12 @@
+type: dfa
+alphabet: ["a", "b"]
+states: ["{q0}", "{q3,q4}"]
+initial_state: "{q0}"
+final_states: ["{q3,q4}"]
+transitions:
+  - from: "{q0}"
+    symbol: "a"
+    to: ["{q3,q4}"]
+  - from: "{q0}"
+    symbol: "b"
+    to: ["{q3,q4}"]

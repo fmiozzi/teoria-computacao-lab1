@@ -1,0 +1,22 @@
+# Linguagem sobre {0,1}: cadeias que terminam em "01". Alfabeto inteiro.
+type: nfae
+alphabet: [0, 1]
+states: [q0, q1, q2, q3]
+initial_state: q0
+final_states: [q3]
+transitions:
+  - from: q0
+    symbol: 0
+    to: [q0]
+  - from: q0
+    symbol: 1
+    to: [q0]
+  - from: q0
+    symbol: epsilon
+    to: [q1]
+  - from: q1
+    symbol: 0
+    to: [q2]
+  - from: q2
+    symbol: 1
+    to: [q3]

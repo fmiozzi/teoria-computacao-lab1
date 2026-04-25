@@ -1,0 +1,42 @@
+type: nfa
+alphabet: ["a", "b"]
+states: ["q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7"]
+initial_state: "q0"
+final_states: ["q0", "q3", "q5", "q6", "q7"]
+transitions:
+  - from: "q0"
+    symbol: "a"
+    to: ["q4", "q2", "q7", "q1", "q6", "q3"]
+  - from: "q0"
+    symbol: "b"
+    to: ["q4", "q2", "q7", "q1", "q6", "q5"]
+  - from: "q1"
+    symbol: "a"
+    to: ["q4", "q2", "q7", "q1", "q6", "q3"]
+  - from: "q1"
+    symbol: "b"
+    to: ["q4", "q2", "q7", "q1", "q6", "q5"]
+  - from: "q2"
+    symbol: "a"
+    to: ["q4", "q2", "q7", "q1", "q6", "q3"]
+  - from: "q3"
+    symbol: "a"
+    to: ["q4", "q2", "q7", "q1", "q6", "q3"]
+  - from: "q3"
+    symbol: "b"
+    to: ["q4", "q2", "q7", "q1", "q6", "q5"]
+  - from: "q4"
+    symbol: "b"
+    to: ["q4", "q2", "q7", "q1", "q6", "q5"]
+  - from: "q5"
+    symbol: "a"
+    to: ["q4", "q2", "q7", "q1", "q6", "q3"]
+  - from: "q5"
+    symbol: "b"
+    to: ["q4", "q2", "q7", "q1", "q6", "q5"]
+  - from: "q6"
+    symbol: "a"
+    to: ["q4", "q2", "q7", "q1", "q6", "q3"]
+  - from: "q6"
+    symbol: "b"
+    to: ["q4", "q2", "q7", "q1", "q6", "q5"]

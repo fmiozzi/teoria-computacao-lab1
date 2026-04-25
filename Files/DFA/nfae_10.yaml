@@ -1,0 +1,69 @@
+type: dfa
+alphabet: ["a", "b", "c"]
+states: ["{q0}", "{q10,q11,q12,q6,q7,q8}", "{q10,q11,q6,q7,q8}", "{q10,q12,q6,q7,q8}", "{q10,q6,q7,q8,q9}", "{q10,q6,q7,q8}", "{q2}", "{q6}"]
+initial_state: "{q0}"
+final_states: ["{q10,q11,q12,q6,q7,q8}", "{q10,q12,q6,q7,q8}"]
+transitions:
+  - from: "{q10,q11,q12,q6,q7,q8}"
+    symbol: "a"
+    to: ["{q10,q6,q7,q8}"]
+  - from: "{q10,q11,q12,q6,q7,q8}"
+    symbol: "b"
+    to: ["{q10,q6,q7,q8,q9}"]
+  - from: "{q10,q11,q12,q6,q7,q8}"
+    symbol: "c"
+    to: ["{q10,q11,q12,q6,q7,q8}"]
+  - from: "{q10,q12,q6,q7,q8}"
+    symbol: "a"
+    to: ["{q10,q6,q7,q8}"]
+  - from: "{q10,q12,q6,q7,q8}"
+    symbol: "b"
+    to: ["{q10,q6,q7,q8,q9}"]
+  - from: "{q10,q12,q6,q7,q8}"
+    symbol: "c"
+    to: ["{q10,q11,q6,q7,q8}"]
+  - from: "{q10,q11,q6,q7,q8}"
+    symbol: "a"
+    to: ["{q10,q6,q7,q8}"]
+  - from: "{q10,q11,q6,q7,q8}"
+    symbol: "b"
+    to: ["{q10,q6,q7,q8,q9}"]
+  - from: "{q10,q11,q6,q7,q8}"
+    symbol: "c"
+    to: ["{q10,q11,q12,q6,q7,q8}"]
+  - from: "{q10,q6,q7,q8,q9}"
+    symbol: "a"
+    to: ["{q10,q12,q6,q7,q8}"]
+  - from: "{q10,q6,q7,q8,q9}"
+    symbol: "b"
+    to: ["{q10,q6,q7,q8,q9}"]
+  - from: "{q10,q6,q7,q8,q9}"
+    symbol: "c"
+    to: ["{q10,q11,q6,q7,q8}"]
+  - from: "{q10,q6,q7,q8}"
+    symbol: "a"
+    to: ["{q10,q6,q7,q8}"]
+  - from: "{q10,q6,q7,q8}"
+    symbol: "b"
+    to: ["{q10,q6,q7,q8,q9}"]
+  - from: "{q10,q6,q7,q8}"
+    symbol: "c"
+    to: ["{q10,q11,q6,q7,q8}"]
+  - from: "{q6}"
+    symbol: "a"
+    to: ["{q6}"]
+  - from: "{q6}"
+    symbol: "b"
+    to: ["{q6}"]
+  - from: "{q6}"
+    symbol: "c"
+    to: ["{q10,q6,q7,q8}"]
+  - from: "{q2}"
+    symbol: "b"
+    to: ["{q6}"]
+  - from: "{q0}"
+    symbol: "a"
+    to: ["{q2}"]
+  - from: "{q0}"
+    symbol: "c"
+    to: ["{q2}"]

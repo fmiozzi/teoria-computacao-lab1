@@ -14,10 +14,20 @@
         buildInputs = [
           pkgs.haskell.compiler.ghc94
           pkgs.cabal-install
+          (pkgs.texlive.combine {
+            inherit (pkgs.texlive)
+              scheme-medium
+              abntex2
+              enumitem
+              ragged2e
+              booktabs
+              float
+              ;
+          })
         ];
 
         shellHook = ''
-          echo "Ambiente Haskell carregado (GHC + Cabal)"
+          echo "Ambiente Haskell + LaTeX/abntex2 carregado"
         '';
       };
     };

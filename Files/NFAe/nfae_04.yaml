@@ -1,0 +1,16 @@
+# Linguagem: {ab} - exatamente a string "ab". Usa epsilon como conector.
+type: nfae
+alphabet: [a, b]
+states: [q0, q1, q2, q3]
+initial_state: q0
+final_states: [q3]
+transitions:
+  - from: q0
+    symbol: a
+    to: [q1]
+  - from: q1
+    symbol: epsilon
+    to: [q2]
+  - from: q2
+    symbol: b
+    to: [q3]

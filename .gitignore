@@ -30,3 +30,15 @@ output/*.yml
 *.swp
 .envrc
 .DS_Store
+
+# LaTeX build artifacts
+doc_pdf/*.aux
+doc_pdf/*.log
+doc_pdf/*.toc
+doc_pdf/*.out
+doc_pdf/*.lof
+doc_pdf/*.lot
+doc_pdf/*.loq
+doc_pdf/*.synctex.gz
+doc_pdf/*.fls
+doc_pdf/*.fdb_latexmk

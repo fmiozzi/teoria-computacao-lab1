@@ -1,0 +1,21 @@
+type: nfa
+alphabet: ["a", "b"]
+states: ["q0", "q1", "q2", "q3", "q4", "q5"]
+initial_state: "q0"
+final_states: ["q1", "q2", "q3", "q5"]
+transitions:
+  - from: "q0"
+    symbol: "a"
+    to: ["q3", "q4", "q2", "q1"]
+  - from: "q1"
+    symbol: "b"
+    to: ["q3", "q4", "q5"]
+  - from: "q2"
+    symbol: "b"
+    to: ["q3", "q4", "q5"]
+  - from: "q4"
+    symbol: "b"
+    to: ["q3", "q4", "q5"]
+  - from: "q5"
+    symbol: "b"
+    to: ["q3", "q4", "q5"]

@@ -1,0 +1,33 @@
+type: dfa
+alphabet: ["a", "b", "c"]
+states: ["{q0}", "{q10,q11,q12,q14,q22,q9}", "{q11,q12,q13,q14,q22,q23,q24,q25,q26,q28,q29}", "{q17,q18,q19,q20}"]
+initial_state: "{q0}"
+final_states: ["{q10,q11,q12,q14,q22,q9}", "{q11,q12,q13,q14,q22,q23,q24,q25,q26,q28,q29}"]
+transitions:
+  - from: "{q11,q12,q13,q14,q22,q23,q24,q25,q26,q28,q29}"
+    symbol: "a"
+    to: ["{q10,q11,q12,q14,q22,q9}"]
+  - from: "{q11,q12,q13,q14,q22,q23,q24,q25,q26,q28,q29}"
+    symbol: "b"
+    to: ["{q11,q12,q13,q14,q22,q23,q24,q25,q26,q28,q29}"]
+  - from: "{q17,q18,q19,q20}"
+    symbol: "a"
+    to: ["{q17,q18,q19,q20}"]
+  - from: "{q17,q18,q19,q20}"
+    symbol: "b"
+    to: ["{q10,q11,q12,q14,q22,q9}"]
+  - from: "{q10,q11,q12,q14,q22,q9}"
+    symbol: "a"
+    to: ["{q17,q18,q19,q20}"]
+  - from: "{q10,q11,q12,q14,q22,q9}"
+    symbol: "b"
+    to: ["{q11,q12,q13,q14,q22,q23,q24,q25,q26,q28,q29}"]
+  - from: "{q0}"
+    symbol: "a"
+    to: ["{q0}"]
+  - from: "{q0}"
+    symbol: "b"
+    to: ["{q0}"]
+  - from: "{q0}"
+    symbol: "c"
+    to: ["{q10,q11,q12,q14,q22,q9}"]

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/regex.sh)",
+      "Bash(bash regex.sh)",
+      "Bash(bash /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/regex.sh)",
+      "Bash(chmod +x /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/dfa.sh)",
+      "Bash(bash /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/dfa.sh)",
+      "Bash(bash /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/Exec/dfa.sh)",
+      "Bash(chmod +x /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/doc_pdf/pdf.sh)",
+      "Bash(bash /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/doc_pdf/pdf.sh)",
+      "Bash(bash /home/fmiozzi/Mestrado/teoria-da-computacao/lab1/Exec/run.sh)"
+    ],
+    "additionalDirectories": [
+      "/home/fmiozzi/Mestrado/teoria-da-computacao/lab1",
+      "/home/fmiozzi/Mestrado/teoria-da-computacao/lab1/Exec"
+    ]
+  }
+}

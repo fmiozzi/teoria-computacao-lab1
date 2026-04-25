@@ -10,7 +10,7 @@
 | Disciplina   | Teoria da Computação         |
 | Nível        | Mestrado                     |
 | Aluno        | Flavio Miozzi                |
-| Contato      | flavio.mb@fortlev.com.br     |
+| Contato      | fmiozzi@gmail.com            |
 | Linguagem    | Haskell (GHC 9.4)            |
 | Ambiente     | Nix Flakes (reproduzível)    |
 
