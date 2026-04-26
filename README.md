@@ -1,397 +1,524 @@
 # Laboratório 1 — Teoria da Computação
 
-## Conversão de Autômatos Finitos e Expressões Regulares
+**Mestrado Profissional em Computação Aplicada — IFES**
 
-> **NFAε → NFA → DFA** via Construção de Subconjuntos e Minimização  
-> **Regex → NFAε** via Construção de Thompson
+> Implementação em Haskell de algoritmos clássicos de teoria dos autômatos:
+> conversão **NFAε → NFA → DFA mínimo** e conversão **Expressão Regular → NFAε**
+> pela Construção de Thompson.
 
-| Campo        | Valor                        |
-|--------------|------------------------------|
-| Disciplina   | Teoria da Computação         |
-| Nível        | Mestrado                     |
-| Aluno        | Flavio Miozzi                |
-| Contato      | fmiozzi@gmail.com            |
-| Linguagem    | Haskell (GHC 9.4)            |
-| Ambiente     | Nix Flakes (reproduzível)    |
+| Campo      | Valor                                          |
+|------------|------------------------------------------------|
+| Disciplina | Teoria da Computação                           |
+| Professor  | Prof. Jefferson Oliveira Andrade               |
+| Aluno      | Flávio Miozzi Batista                          |
+| Linguagem  | Haskell (GHC 9.4)                              |
+| Ambiente   | Nix Flakes — reprodutível em qualquer máquina  |
 
 ---
 
 ## Sumário
 
-1. [Objetivos](#objetivos)
-2. [Estrutura do Projeto](#estrutura-do-projeto)
-3. [Pré-requisitos e Ambiente](#pré-requisitos-e-ambiente)
-4. [Como Compilar](#como-compilar)
-5. [Como Executar](#como-executar)
-6. [Formato dos Arquivos YAML](#formato-dos-arquivos-yaml)
-7. [Exemplos de Entrada e Saída](#exemplos-de-entrada-e-saída)
-8. [Algoritmos Implementados](#algoritmos-implementados)
-9. [Operadores de Expressão Regular Suportados](#operadores-de-expressão-regular-suportados)
-10. [Estrutura do Código](#estrutura-do-código)
+1. [Visão Geral](#1-visão-geral)
+2. [Estrutura do Repositório](#2-estrutura-do-repositório)
+3. [Pré-requisitos](#3-pré-requisitos)
+4. [Clonando o Repositório](#4-clonando-o-repositório)
+5. [Ativando o Ambiente](#5-ativando-o-ambiente)
+6. [Compilando o Projeto](#6-compilando-o-projeto)
+7. [Executando — Parte 1: NFAε → DFA](#7-executando--parte-1-nfaε--dfa)
+8. [Executando — Parte 2: Regex → DFA](#8-executando--parte-2-regex--dfa)
+9. [Gerando o Relatório PDF](#9-gerando-o-relatório-pdf)
+10. [Formato dos Arquivos YAML](#10-formato-dos-arquivos-yaml)
+11. [Algoritmos Implementados](#11-algoritmos-implementados)
+12. [Operadores de Expressão Regular Suportados](#12-operadores-de-expressão-regular-suportados)
 
 ---
 
-## Objetivos
+## 1. Visão Geral
 
-Este laboratório implementa dois módulos de conversão de autômatos finitos:
+O laboratório é dividido em duas partes:
 
-**Parte 1** (`src/Main.hs`) — Converte um autômato NFAε para DFA em três etapas sequenciais:
+**Parte 1 — `src/Main.hs`**
 
-1. **Remoção de transições ε** (NFAε → NFA): para cada estado *s* e símbolo *a*, computa δ'(*s*, *a*) = move(ε-closure(*s*), *a*). Estados finais são atualizados para incluir qualquer estado cuja ε-closure contenha um estado final do autômato original.
+Lê um autômato descrito em YAML (NFAε, NFA ou DFA) e aplica o pipeline:
 
-2. **Construção de subconjuntos** (NFA → DFA): cada estado do DFA representa um conjunto de estados do NFA. A partir do conjunto inicial {*q₀*}, explora-se por BFS todos os conjuntos alcançáveis via move(*S*, *a*).
+```
+NFAε  ──[remoção de ε]──►  NFA  ──[subconjuntos]──►  DFA  ──[Hopcroft]──►  DFA mínimo
+```
 
-3. **Minimização do DFA** (algoritmo de refinamento de partições): inicia com a bipartição {*F*, *Q*\*F*} e refina iterativamente até estabilização, fundindo estados com comportamento idêntico.
+**Parte 2 — `src/Regex.hs`**
 
-**Parte 2** (`src/Regex.hs`) — Converte uma Expressão Regular para NFAε pela **Construção de Thompson**, gerando um NFA com exatamente um estado de entrada e um de saída por subexpressão. O resultado é compatível com a pipeline da Parte 1.
+Lê uma expressão regular em texto e aplica a **Construção de Thompson** para gerar um NFAε. O resultado é compatível com a Parte 1, permitindo encadear os dois programas:
+
+```
+Regex  ──[Thompson]──►  NFAε  ──[Parte 1]──►  DFA mínimo
+```
+
+Ambos os módulos leem e escrevem arquivos **YAML** com formato padronizado.
 
 ---
 
-## Estrutura do Projeto
+## 2. Estrutura do Repositório
 
 ```
 lab1/
+│
 ├── src/
-│   ├── Main.hs             # Parte 1: NFAε → NFA → DFA
-│   └── Regex.hs            # Parte 2: Regex → NFAε (Thompson)
-├── input/
-│   ├── nfae_simple.yaml    # Caso de teste simples  (3 estados, alfabeto {0,1})
-│   └── nfae_complex.yaml   # Caso de teste complexo (13 estados, alfabeto {a,b,c})
-├── output/                 # Diretório para arquivos de saída gerados
-├── flake.nix               # Ambiente Nix reproduzível (GHC 9.4 + Cabal)
-├── shell.nix               # Ambiente Nix alternativo (nix-shell)
-├── lab1.cabal              # Configuração de build (Cabal 2.4)
-├── run.sh                  # Script de execução — Parte 1
-├── run2.sh                 # Script de execução — Parte 2 (pipeline completo)
-└── tc-lab01.pdf            # Enunciado do laboratório
+│   ├── Main.hs              # Parte 1: NFAε/NFA/DFA → DFA mínimo
+│   └── Regex.hs             # Parte 2: Regex → NFAε (Thompson)
+│
+├── Files/
+│   ├── NFAe/                # Autômatos NFAε de entrada (exemplos prontos)
+│   │   ├── nfae_simple.yaml
+│   │   ├── nfae_02.yaml     # L = {a,b}
+│   │   ├── nfae_04.yaml     # L = {ab}
+│   │   ├── nfae_06.yaml     # L = (a|b)*
+│   │   ├── nfae_08.yaml     # L = (0|1)*01
+│   │   ├── nfae_10.yaml     # Exemplo complexo com 13 estados
+│   │   └── nfae_complex.yaml
+│   ├── NFA/                 # Saída: NFA após remoção de ε  (gerado automaticamente)
+│   ├── DFA/                 # Saída: DFA mínimo             (gerado automaticamente)
+│   ├── REGEX/               # Expressões regulares de entrada (uma por arquivo)
+│   │   ├── regex_1.txt      # ab*
+│   │   ├── regex_2.txt      # a*b+
+│   │   ├── regex_3.txt      # (a|b)*abb
+│   │   ├── regex_4.txt      # a?
+│   │   └── regex_5.txt      # (a|b)*c(a+b|ba?)*
+│   ├── REGEX_NFA/           # Saída: NFAε gerado por Thompson (gerado automaticamente)
+│   └── REGEX_DFA/           # Saída: DFA mínimo da regex    (gerado automaticamente)
+│
+├── Exec/
+│   ├── NFAe_to_DFA.sh       # Converte um único arquivo NFAε/NFA/DFA
+│   ├── dfa_batch.sh         # Converte em lote todos os arquivos de Files/NFAe/
+│   ├── rgx_to_dfa.sh        # Converte uma regex para DFA (pipeline completo)
+│   └── regex_batch.sh       # Converte em lote todos os arquivos de Files/REGEX/
+│
+├── doc_pdf/
+│   ├── lab1.tex             # Relatório do laboratório (LaTeX/abntex2)
+│   ├── pdf.sh               # Compilação do PDF (silencioso, 3 passadas)
+│   ├── ifes8.cls            # Classe LaTeX IFES (fornecida pela instituição)
+│   └── img/                 # Imagens do relatório
+│
+├── output/                  # Saída padrão para conversões individuais
+│   ├── NFA/
+│   ├── DFA/
+│   ├── REGEX_NFA/
+│   └── REGEX_DFA/
+│
+├── flake.nix                # Ambiente Nix reproduzível (GHC 9.4 + Cabal + LaTeX)
+├── shell.nix                # Alternativa: nix-shell clássico
+└── lab1.cabal               # Configuração de build Cabal
 ```
 
 ---
 
-## Pré-requisitos e Ambiente
+## 3. Pré-requisitos
 
-### Via Nix — recomendado (ambiente reproduzível)
+### Opção A — Nix (recomendada)
 
-O arquivo `flake.nix` define um ambiente fixo com **GHC 9.4** e **Cabal**, garantindo reprodutibilidade total da compilação.
+O arquivo `flake.nix` define um ambiente fixo com **GHC 9.4**, **Cabal** e **LaTeX/abntex2**. Qualquer máquina com Nix reproduz o ambiente exato, sem instalar dependências manualmente.
 
-**Pré-requisito único:** [Nix](https://nixos.org/download.html) com suporte a Flakes.
+**Requisito único:** [Nix](https://nixos.org/download.html) com suporte a Flakes habilitado.
 
-```bash
-# Habilitar Nix Flakes (adicionar a /etc/nix/nix.conf ou ~/.config/nix/nix.conf):
+Para habilitar Flakes, adicione ao arquivo `~/.config/nix/nix.conf` (criando-o se necessário):
+
+```
 experimental-features = nix-command flakes
 ```
 
-### Via instalação manual
+### Opção B — Instalação manual
 
 | Ferramenta | Versão mínima |
 |------------|---------------|
-| GHC        | 9.4           |
+| GHC        | 9.4.x         |
 | Cabal      | 3.6           |
 
-Pacotes Haskell necessários: `yaml`, `aeson`, `containers`, `bytestring`.
+Pacotes Haskell necessários (instalados automaticamente pelo Cabal na primeira compilação):
+
+```
+yaml  ·  aeson  ·  bytestring  ·  containers
+```
+
+Para gerar o PDF também é necessária uma distribuição LaTeX com `abntex2`, `tikz` e `booktabs`.
 
 ---
 
-## Como Compilar
+## 4. Clonando o Repositório
+
+```bash
+git clone <URL-do-repositório>
+cd lab1
+```
+
+Após clonar, a estrutura de diretórios de saída já existe no repositório. Nenhum passo adicional de configuração é necessário antes de compilar.
+
+---
+
+## 5. Ativando o Ambiente
 
 ### Com Nix (recomendado)
 
 ```bash
-# Entrar no ambiente de desenvolvimento
 nix develop
-
-# Compilar ambos os executáveis
-cabal build all
 ```
 
-### Sem Nix (GHC/Cabal instalados manualmente)
+Este comando baixa o GHC, o Cabal e o LaTeX na versão exata definida em `flake.nix` e abre um shell de desenvolvimento. Na primeira execução pode demorar vários minutos (download dos pacotes Nix). Nas execuções seguintes é imediato.
 
-```bash
-cabal build all
+O prompt indica que o ambiente está ativo:
+
+```
+Ambiente Haskell + LaTeX/abntex2 carregado
 ```
 
-> Os binários compilados ficam em `dist-newstyle/`. Os scripts `run.sh` e `run2.sh` invocam `cabal run` diretamente, sem necessidade de localizar o binário manualmente.
+> Os scripts em `Exec/` e `doc_pdf/pdf.sh` ativam o ambiente automaticamente via
+> `nix develop --command` — não é necessário rodar `nix develop` manualmente
+> antes de usá-los.
 
 ---
 
-## Como Executar
-
-### Parte 1 — NFAε → DFA
-
-**Via script:**
+## 6. Compilando o Projeto
 
 ```bash
-./run.sh [input.yaml] [output.yaml]
+# Dentro do shell Nix (após nix develop), ou com GHC/Cabal instalados manualmente:
+cabal build all
 ```
 
-| Argumento     | Padrão                    | Descrição             |
-|---------------|---------------------------|-----------------------|
-| `input.yaml`  | `input/nfae_simple.yaml`  | Autômato de entrada   |
-| `output.yaml` | `output/result.yaml`      | DFA mínimo de saída   |
+Isso compila dois executáveis:
+
+| Executável   | Fonte          | Função                         |
+|--------------|----------------|--------------------------------|
+| `lab1`       | `src/Main.hs`  | NFAε/NFA/DFA → DFA mínimo      |
+| `lab1-part2` | `src/Regex.hs` | Regex → NFAε (Thompson)        |
+
+Os binários ficam em `dist-newstyle/` e são invocados pelos scripts via `cabal run`, sem necessidade de localizar o caminho manualmente.
+
+---
+
+## 7. Executando — Parte 1: NFAε → DFA
+
+### 7.1 Converter um único arquivo
+
+```bash
+./Exec/NFAe_to_DFA.sh <input.yaml> [output_nfa.yaml] [output_dfa.yaml]
+```
+
+| Argumento         | Padrão                               | Descrição                              |
+|-------------------|--------------------------------------|----------------------------------------|
+| `input.yaml`      | (obrigatório)                        | Autômato de entrada (NFAε, NFA ou DFA) |
+| `output_nfa.yaml` | `output/NFA/<nome-do-arquivo>`       | NFA após remoção de ε                  |
+| `output_dfa.yaml` | `output/DFA/<nome-do-arquivo>`       | DFA mínimo                             |
 
 **Exemplos:**
 
 ```bash
-./run.sh                                               # usa arquivos padrão
-./run.sh input/nfae_simple.yaml  output/dfa_simple.yaml
-./run.sh input/nfae_complex.yaml output/dfa_complex.yaml
+# Usando os exemplos prontos (saída em output/NFA/ e output/DFA/)
+./Exec/NFAe_to_DFA.sh Files/NFAe/nfae_simple.yaml
+./Exec/NFAe_to_DFA.sh Files/NFAe/nfae_08.yaml
+
+# Especificando destinos
+./Exec/NFAe_to_DFA.sh Files/NFAe/nfae_10.yaml output/NFA/ex10.yaml output/DFA/ex10.yaml
 ```
 
-**Diretamente com Cabal:**
+**Saída no terminal:**
+
+```
+📥 Input      : Files/NFAe/nfae_simple.yaml
+📤 Output NFA : output/NFA/nfae_simple.yaml
+📤 Output DFA : output/DFA/nfae_simple.yaml
+```
+
+### 7.2 Converter todos os exemplos em lote
 
 ```bash
-cabal run lab1 -- input/nfae_simple.yaml output/result.yaml
+./Exec/dfa_batch.sh [diretório_entrada]
+```
+
+| Argumento            | Padrão        | Descrição                             |
+|----------------------|---------------|---------------------------------------|
+| `diretório_entrada`  | `Files/NFAe/` | Diretório com os arquivos YAML        |
+
+```bash
+# Processa todos os arquivos de Files/NFAe/ → Files/NFA/ e Files/DFA/
+./Exec/dfa_batch.sh
+
+# Processa um diretório alternativo
+./Exec/dfa_batch.sh outro_diretorio/
+```
+
+**Saída no terminal:**
+
+```
+📂 Entrada : Files/NFAe/  (7 arquivo(s))
+📤 NFA     : Files/NFA
+📤 DFA     : Files/DFA
+
+📥 nfae_simple.yaml
+   ✅ NFA → Files/NFA/nfae_simple.yaml
+   ✅ DFA → Files/DFA/nfae_simple.yaml
+...
+Concluído — 7 arquivo(s) processado(s), 0 erro(s)
+```
+
+### 7.3 Invocação direta via Cabal
+
+```bash
+cabal run lab1 -- <input.yaml> <output_nfa.yaml> <output_dfa.yaml>
+```
+
+```bash
+cabal run lab1 -- Files/NFAe/nfae_simple.yaml output/NFA/result.yaml output/DFA/result.yaml
 ```
 
 ---
 
-### Parte 2 — Expressão Regular → DFA (pipeline completo)
+## 8. Executando — Parte 2: Regex → DFA
 
-O script `run2.sh` executa a pipeline completa: **Regex → NFAε → NFA → DFA**.
-
-**Via script:**
+### 8.1 Converter uma expressão regular (pipeline completo)
 
 ```bash
-./run2.sh "<regex>" [output.yaml]
+./Exec/rgx_to_dfa.sh "<regex>" [output_nfa.yaml] [output_dfa.yaml]
 ```
 
-| Argumento     | Padrão               | Descrição           |
-|---------------|----------------------|---------------------|
-| `<regex>`     | (obrigatório)        | Expressão regular   |
-| `output.yaml` | `output/result.yaml` | DFA mínimo de saída |
+| Argumento         | Padrão                          | Descrição                     |
+|-------------------|---------------------------------|-------------------------------|
+| `<regex>`         | (obrigatório)                   | Expressão regular entre aspas |
+| `output_nfa.yaml` | `output/REGEX_NFA/result.yaml`  | NFA resultante                |
+| `output_dfa.yaml` | `output/REGEX_DFA/result.yaml`  | DFA mínimo resultante         |
 
 **Exemplos:**
 
 ```bash
-./run2.sh "(a|b)*abb"
-./run2.sh "a*b+c?"              output/resultado.yaml
-./run2.sh "(0|1)*00(0|1)*"      output/dfa_00.yaml
+./Exec/rgx_to_dfa.sh "(a|b)*abb"
+./Exec/rgx_to_dfa.sh "a*b+"
+./Exec/rgx_to_dfa.sh "(0|1)*01"
+./Exec/rgx_to_dfa.sh "a?" output/REGEX_NFA/a_opt.yaml output/REGEX_DFA/a_opt.yaml
 ```
 
-**Apenas Thompson (NFAε sem conversão para DFA):**
+**Saída no terminal:**
+
+```
+🔤 Regex      : (a|b)*abb
+📤 Output NFA : output/REGEX_NFA/result.yaml
+📤 Output DFA : output/REGEX_DFA/result.yaml
+```
+
+Internamente, o script executa:
+
+```
+"(a|b)*abb"  →  [lab1-part2/Thompson]  →  NFAε (temp)  →  [lab1]  →  NFA + DFA mínimo
+```
+
+### 8.2 Converter todos os arquivos de regex em lote
+
+Os arquivos em `Files/REGEX/` contêm cada um uma expressão regular na primeira linha.
 
 ```bash
-cabal run lab1-part2 -- "(a|b)*abb" output/nfae.yaml
+./Exec/regex_batch.sh [diretório_entrada]
+```
+
+| Argumento            | Padrão          | Descrição                                |
+|----------------------|-----------------|------------------------------------------|
+| `diretório_entrada`  | `Files/REGEX/`  | Diretório com arquivos de regex (`.txt`) |
+
+```bash
+# Processa Files/REGEX/ → Files/REGEX_NFA/ e Files/REGEX_DFA/
+./Exec/regex_batch.sh
+```
+
+**Saída no terminal:**
+
+```
+📂 Entrada : Files/REGEX/  (5 arquivo(s))
+📤 NFA     : Files/REGEX_NFA
+📤 DFA     : Files/REGEX_DFA
+
+🔤 regex_1.txt : ab*
+   ✅ NFA → Files/REGEX_NFA/regex_1.yaml
+   ✅ DFA → Files/REGEX_DFA/regex_1.yaml
+...
+Concluído — 5 arquivo(s) processado(s), 0 erro(s)
+```
+
+### 8.3 Gerar apenas o NFAε (Thompson, sem converter para DFA)
+
+```bash
+cabal run lab1-part2 -- "<regex>" <output_nfae.yaml>
+```
+
+```bash
+cabal run lab1-part2 -- "(a|b)*abb" output/nfae_thompson.yaml
 ```
 
 ---
 
-## Formato dos Arquivos YAML
+## 9. Gerando o Relatório PDF
 
-### Entrada
+O relatório está em `doc_pdf/lab1.tex` (LaTeX com classe `ifes8`/abntex2, normas ABNT). O script `pdf.sh` compila silenciosamente em três passadas e exibe apenas avisos reais ao final.
+
+```bash
+./doc_pdf/pdf.sh
+```
+
+**Saída esperada (compilação limpa):**
+
+```
+📄 Compilando lab1.tex → lab1.pdf
+
+✅ PDF gerado sem avisos: doc_pdf/lab1.pdf
+```
+
+O PDF gerado fica em `doc_pdf/lab1.pdf`. O script requer o ambiente Nix (ativado automaticamente via `nix develop --command`).
+
+---
+
+## 10. Formato dos Arquivos YAML
+
+### 10.1 Autômato de entrada
 
 ```yaml
-type: nfae               # "dfa", "nfa" ou "nfae"
-alphabet: ["0", "1"]     # símbolos do alfabeto (sem "epsilon")
+type: nfae               # Tipo: "dfa", "nfa" ou "nfae"
+alphabet: ["0", "1"]     # Símbolos do alfabeto — strings entre aspas
 states: ["q0", "q1", "q2"]
 initial_state: "q0"
 final_states: ["q2"]
 transitions:
   - from:   "q0"
     symbol: "0"
-    to:     ["q0", "q1"]   # lista: suporta NFA (múltiplos destinos)
+    to:     ["q0", "q1"]   # Lista — suporta múltiplos destinos (NFA)
   - from:   "q0"
-    symbol: "epsilon"       # transição ε
+    symbol: "epsilon"       # Transição ε
     to:     ["q1"]
   - from:   "q1"
     symbol: "1"
     to:     ["q2"]
 ```
 
-**Campos obrigatórios:**
+**Regras obrigatórias:**
 
-| Campo           | Tipo   | Descrição                                             |
-|-----------------|--------|-------------------------------------------------------|
-| `type`          | string | Tipo do autômato: `dfa`, `nfa` ou `nfae`              |
-| `alphabet`      | lista  | Símbolos do alfabeto (não inclui `"epsilon"`)         |
-| `states`        | lista  | Todos os estados                                      |
-| `initial_state` | string | Estado inicial                                        |
-| `final_states`  | lista  | Estados finais/aceitadores                            |
-| `transitions`   | lista  | Lista de transições (`from`, `symbol`, `to`)          |
+- Todos os valores de string devem estar entre **aspas duplas**: `"q0"`, `"0"`, `"epsilon"`.
+- O campo `to` é **sempre uma lista**, mesmo para DFA (lista com um único elemento: `["q1"]`).
+- Transições ε usam `symbol: "epsilon"` (literal string).
+- Transições ausentes implicam rejeição (estado morto implícito).
 
-> Transições ε são representadas com `symbol: "epsilon"`. O campo `to` é sempre uma lista, mesmo para DFA (lista com um único elemento).
+### 10.2 Autômato de saída (DFA mínimo)
 
-### Saída
-
-O arquivo de saída segue o mesmo formato YAML com `type: dfa`. Os estados são nomeados em notação de conjunto, refletindo a construção de subconjuntos:
+O arquivo de saída usa `type: dfa`. Os nomes dos estados refletem a construção de subconjuntos:
 
 ```yaml
 type: dfa
 alphabet: ["0", "1"]
-states: ["{q0,q1}", "{q0,q1,q2}", "{q0}"]
+states: ["{q0}", "{q0,q1}", "{q0,q1,q2}"]
 initial_state: "{q0}"
 final_states: ["{q0,q1,q2}"]
 transitions:
   - from:   "{q0}"
     symbol: "0"
     to:     ["{q0,q1}"]
+  - from:   "{q0}"
+    symbol: "1"
+    to:     ["{q0}"]
+  - from:   "{q0,q1}"
+    symbol: "1"
+    to:     ["{q0,q1,q2}"]
   ...
 ```
 
----
+### 10.3 Arquivo de expressão regular
 
-## Exemplos de Entrada e Saída
-
-### Exemplo 1 — NFAε simples (3 estados)
-
-**Entrada:** `input/nfae_simple.yaml`
-
-Reconhece cadeias sobre {0, 1} que contêm `"01"` como subcadeia.
+Arquivo de texto com a expressão regular na **primeira linha**:
 
 ```
-NFAε:  q0 --[0]--> {q0,q1}
-       q0 --[ε]--> q1
-       q1 --[1]--> q2  (final)
-```
-
-```bash
-./run.sh input/nfae_simple.yaml output/dfa_simple.yaml
+(a|b)*abb
 ```
 
 ---
 
-### Exemplo 2 — NFAε complexo (13 estados)
+## 11. Algoritmos Implementados
 
-**Entrada:** `input/nfae_complex.yaml`
+### 11.1 ε-closure e Remoção de ε-transições (NFAε → NFA)
 
-Reconhece cadeias sobre {a, b, c} que iniciam com `"ab"` ou `"cb"`, contêm pelo menos um `"c"` no meio e terminam com `"ba"` ou `"cc"`.
+A **ε-closure** de um estado *s* é o conjunto de todos os estados alcançáveis
+exclusivamente por transições ε, incluindo o próprio *s*. É calculada por BFS.
 
-```bash
-./run.sh input/nfae_complex.yaml output/dfa_complex.yaml
-```
-
-O DFA minimizado resultante possui **8 estados** (reduzido dos 13 originais).
-
----
-
-### Exemplo 3 — Expressão Regular
-
-```bash
-./run2.sh "(a|b)*abb"         # terminadas em "abb" sobre {a,b}
-./run2.sh "a*b+"              # zero ou mais 'a' seguido de um ou mais 'b'
-./run2.sh "(0|1)*00"          # terminadas em "00" sobre {0,1}
-./run2.sh "(a|b|c)?(ab)*"     # prefixo opcional + repetições de "ab"
-```
-
----
-
-## Algoritmos Implementados
-
-### Parte 1 — `src/Main.hs`
-
-#### Etapa 1: ε-closure e Remoção de Transições ε (NFAε → NFA)
-
-A ε-closure de um estado *s* é o conjunto de todos os estados alcançáveis a partir de *s* usando apenas transições ε (incluindo *s* mesmo). Calculada por BFS sobre as transições ε.
-
-Para cada estado *s* ∈ *Q* e símbolo *a* ∈ Σ:
+A função de transição do NFA resultante é:
 
 ```
-δ'(s, a) = ⋃_{q ∈ ε-closure(s)} δ(q, a)
+δ'(s, a) = ⋃_{q ∈ ε-closure(s)} δ(q, a)      ∀ s ∈ Q, a ∈ Σ
 ```
 
-Estados finais do NFA resultante:
+Os estados finais são atualizados para incluir todo estado cuja ε-closure intercepte *F*:
 
 ```
 F' = { s ∈ Q  |  ε-closure(s) ∩ F ≠ ∅ }
 ```
 
-#### Etapa 2: Construção de Subconjuntos (NFA → DFA)
+### 11.2 Construção de Subconjuntos (NFA → DFA)
 
-Cada estado do DFA é um subconjunto de estados do NFA. A partir do estado inicial {*q₀*}, computa-se por BFS:
+Cada estado do DFA corresponde a um subconjunto de estados do NFA.
+A construção parte de `{q₀}` e expande por BFS:
 
 ```
-move(S, a) = ⋃_{s ∈ S} δ(s, a)
+move(S, a) = ⋃_{s ∈ S} δ(s, a)      ∀ S ⊆ Q, a ∈ Σ
 ```
-
-O nome de cada estado DFA usa notação de conjunto: `{q0,q1,q2}`. O estado morto (∅) é omitido — transições ausentes implicam rejeição.
-
-Estados finais do DFA:
 
 ```
 F_DFA = { S ⊆ Q  |  S ∩ F ≠ ∅ }
 ```
 
-#### Etapa 3: Minimização do DFA (Refinamento de Partições)
+### 11.3 Minimização do DFA (Refinamento de Partições)
 
-Algoritmo baseado em Myhill-Nerode:
+1. **Partição inicial:** `{ F, Q \ F }`.
+2. **Refinamento:** para cada grupo *G* e símbolo *a*, verifica se todos os estados
+   de *G* transitam para o **mesmo grupo** sob *a*.
+3. Grupos com comportamento distinto são divididos.
+4. Repete até atingir **ponto fixo**.
 
-1. Partição inicial: {*F*, *Q*\*F*} (estados finais e não-finais).
-2. Para cada grupo *G* da partição atual, verifica se todos os estados de *G* transitam para o **mesmo grupo** sob cada símbolo.
-3. Se não, divide *G* em subgrupos com comportamento idêntico.
-4. Repete até a partição se estabilizar (ponto fixo).
+O representante lexicograficamente menor de cada grupo torna-se o estado do DFA mínimo.
 
-O representante de cada grupo (lexicograficamente menor) torna-se o estado do DFA mínimo.
+### 11.4 Construção de Thompson (Regex → NFAε)
 
----
+Parser de descida recursiva com precedências:
 
-### Parte 2 — `src/Regex.hs`
+| Nível | Regra    | Operador       |
+|-------|----------|----------------|
+| 1     | `expr`   | `\|` (união)   |
+| 2     | `term`   | concatenação   |
+| 3     | `factor` | `*`, `+`, `?`  |
+| 4     | `atom`   | literal, `(…)` |
 
-#### Parser de Expressão Regular
+Cada subexpressão produz um fragmento NFA com exatamente um estado de entrada e um de saída:
 
-Parser de descida recursiva (recursive descent) com precedência correta de operadores:
-
-| Nível | Construção | Operador         | Precedência |
-|-------|-----------|------------------|-------------|
-| 1     | `expr`     | `\|` (união)     | Mais baixa  |
-| 2     | `term`     | concatenação      | Média       |
-| 3     | `factor`   | `*`, `+`, `?`    | Alta        |
-| 4     | `atom`     | literal, `(...)`  | Mais alta   |
-
-Resultado intermediário: AST do tipo `Regex` com construtores `RChar`, `REpsilon`, `RConcat`, `RUnion`, `RStar`, `RPlus`, `ROpt`.
-
-#### Construção de Thompson (Regex → NFAε)
-
-Cada subexpressão gera um **fragmento NFA** com exatamente um estado de entrada e um de saída. Estados são identificados por inteiros crescentes (`q0`, `q1`, …).
-
-| Expressão  | Construção Thompson                                                     |
-|------------|-------------------------------------------------------------------------|
-| `c`        | *n* —[c]→ *n+1*                                                        |
-| `ε`        | *n* —[ε]→ *n+1*                                                        |
-| `r1 · r2`  | Conecta fim(*r1*) a início(*r2*) por ε                                 |
-| `r1 \| r2` | Novo início —ε→ início(*r1*) e início(*r2*); fim(*r1*) e fim(*r2*) —ε→ novo fim |
-| `r*`       | Novo início —ε→ início(*r*) e fim; fim(*r*) —ε→ início(*r*) e fim    |
-| `r+`       | Equivalente a `r · r*`                                                  |
-| `r?`       | Equivalente a `r \| ε`                                                  |
+| Expressão   | Construção                                                                          |
+|-------------|-------------------------------------------------------------------------------------|
+| `c`         | *n* —[c]→ *n+1*                                                                    |
+| `r₁ · r₂`  | fim(*r₁*) —[ε]→ início(*r₂*)                                                      |
+| `r₁ \| r₂` | novo início —ε→ {início(*r₁*), início(*r₂*)}; fins —ε→ novo fim                   |
+| `r*`        | novo início —ε→ {início(*r*), fim}; fim(*r*) —ε→ {início(*r*), fim}               |
+| `r+`        | equivalente a `r · r*`                                                              |
+| `r?`        | equivalente a `r \| ε`                                                              |
 
 ---
 
-## Operadores de Expressão Regular Suportados
+## 12. Operadores de Expressão Regular Suportados
 
-| Operador      | Exemplo        | Linguagem reconhecida                  |
-|---------------|----------------|----------------------------------------|
-| Literal       | `a`            | A string `"a"`                         |
-| Concatenação  | `ab`           | A string `"ab"`                        |
-| União         | `a\|b`         | `"a"` ou `"b"`                         |
-| Kleene        | `a*`           | `""`, `"a"`, `"aa"`, …                 |
-| Uma ou mais   | `a+`           | `"a"`, `"aa"`, `"aaa"`, …             |
-| Opcional      | `a?`           | `""` ou `"a"`                          |
-| Agrupamento   | `(a\|b)*c`     | Zero ou mais {a,b} seguido de `"c"`    |
-| Combinado     | `(a\|b)*abb`   | Strings sobre {a,b} terminadas em `"abb"` |
+| Operador     | Sintaxe      | Exemplo       | Linguagem reconhecida                       |
+|--------------|--------------|---------------|---------------------------------------------|
+| Literal      | `c`          | `a`           | A string `"a"`                              |
+| Concatenação | justaposição | `ab`          | A string `"ab"`                             |
+| União        | `\|`         | `a\|b`        | `"a"` ou `"b"`                              |
+| Kleene       | `*`          | `a*`          | `""`, `"a"`, `"aa"`, …                     |
+| Uma ou mais  | `+`          | `a+`          | `"a"`, `"aa"`, `"aaa"`, …                 |
+| Opcional     | `?`          | `a?`          | `""` ou `"a"`                               |
+| Agrupamento  | `(…)`        | `(a\|b)*`     | Qualquer cadeia sobre {a, b}                |
 
-> **Nota:** caracteres especiais (`|`, `*`, `+`, `?`, `(`, `)`) não podem ser usados como literais. Todos os demais caracteres ASCII imprimíveis são tratados como literais.
+> Caracteres com significado especial (`|`, `*`, `+`, `?`, `(`, `)`) não podem
+> ser usados como literais. Todos os demais ASCII imprimíveis são tratados como literais.
 
----
-
-## Estrutura do Código
+**Expressões utilizadas no laboratório:**
 
 ```
-src/Main.hs
-├── Tipos base              — State, Symbol, AutomatonType, Transition, Automaton
-├── Instâncias JSON/YAML    — FromJSON / ToJSON para leitura e escrita de YAML
-├── epsilonClosure          — BFS sobre transições ε
-├── removeEpsilon           — NFAε → NFA
-├── subsetConstruction      — NFA → DFA (construção de subconjuntos)
-├── minimizeDFA             — DFA → DFA mínimo (refinamento de partições)
-├── formatAutomaton         — Serializador YAML customizado (formato idêntico ao input)
-└── main                    — Lê YAML → aplica pipeline → escreve YAML
-
-src/Regex.hs
-├── Tipo Regex (AST)        — RChar, REpsilon, RConcat, RUnion, RStar, RPlus, ROpt
-├── Parser                  — parseRegex, parseExpr, parseTerm, parseFactor, parseAtom
-├── Construção de Thompson  — build :: Regex → Int → (NFAFrag, Int)
-├── Tipos Automaton         — espelho de Main.hs (arquivo independente)
-├── collectAlphabet         — extrai símbolos literais da AST
-├── groupTransitions        — agrupa transições brutas por (origem, símbolo)
-├── fragToAutomaton         — converte NFAFrag para Automaton
-└── main                    — lê regex → Thompson → escreve YAML
+ab*                      # 'a' seguido de zero ou mais 'b'
+a*b+                     # zero ou mais 'a', depois um ou mais 'b'
+(a|b)*abb                # terminadas em "abb" sobre {a, b}
+a?                       # string vazia ou "a"
+(a|b)*c(a+b|ba?)*        # padrão complexo sobre {a, b, c}
 ```

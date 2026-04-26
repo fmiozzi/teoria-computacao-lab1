@@ -1,340 +1,283 @@
--- Habilita a extensão OverloadedStrings, permitindo que strings literais sejam
--- interpretadas como outros tipos além de String (ex: ByteString, Text)
+-- ^ Habilita a interpretação polimórfica de literais String (necessário
+--   para que Data.Yaml possa deserializar campos YAML como Text interno).
 {-# LANGUAGE OverloadedStrings #-}
 
--- Importa o módulo para leitura e escrita de arquivos YAML
 import Data.Yaml
--- Importa funções e operadores para parsing/serialização JSON (base do YAML)
--- FromJSON e ToJSON são typeclasses; (.:) lê campos; (.=) e object criam objetos JSON
-import Data.Aeson (FromJSON(..), ToJSON(..), (.:), (.=), object, withObject)
--- nub: remove duplicatas; sort: ordena; intercalate: junta com separador
--- groupBy: agrupa elementos consecutivos iguais; sortBy: ordena com comparador
--- findIndex: retorna o índice do primeiro elemento que satisfaz um predicado
-import Data.List (nub, sort, intercalate, groupBy, sortBy, findIndex)
--- listToMaybe: converte lista para Maybe (Nothing se vazia, Just head se não vazia)
+import Data.List  (nub, sort, intercalate, groupBy, sortBy, findIndex)
 import Data.Maybe (listToMaybe)
--- getArgs: obtém os argumentos passados na linha de comando
 import System.Environment (getArgs)
 
--- =============================
--- Definição de tipos base
--- =============================
+-- =====================================================================
+-- Tipos de dados
+-- =====================================================================
 
--- Alias: um Estado é representado como uma String (ex: "q0", "q1")
-type State = String
--- Alias: um Símbolo do alfabeto também é uma String (ex: "a", "b", "epsilon")
-type Symbol = String
+type State  = String   -- identificador de estado (ex.: "q0", "{q1,q2}")
+type Symbol = String   -- símbolo do alfabeto ou o literal "epsilon"
 
--- Tipo enumerado que representa os três tipos de autômatos suportados
--- DFA: Determinístico; NFA: Não-determinístico; NFAE: NFA com transições epsilon
 data AutomatonType = DFA | NFA | NFAE deriving (Show, Eq)
 
--- Representa uma transição do autômato:
--- de um estado (from), lendo um símbolo (symbol), vai para uma lista de estados (to)
--- O campo "to" é uma lista para suportar NFA (múltiplos destinos por transição)
+-- Representa a função de transição δ(from, symbol) = to.
+-- O campo 'to' é uma lista para acomodar NFA (múltiplos destinos)
+-- e DFA (singleton); a lista vazia codifica ausência de transição.
 data Transition = Transition
-  { from   :: State    -- estado de origem
-  , symbol :: Symbol   -- símbolo consumido
-  , to     :: [State]  -- estados de destino (lista suporta NFA)
+  { from   :: State
+  , symbol :: Symbol
+  , to     :: [State]
   } deriving (Show, Eq)
 
--- Representa o autômato completo com todos os seus componentes
 data Automaton = Automaton
-  { autoType     :: AutomatonType  -- tipo do autômato (DFA, NFA, NFAE)
-  , alphabet     :: [Symbol]       -- lista de símbolos do alfabeto
-  , states       :: [State]        -- lista de todos os estados
-  , initialState :: State          -- estado inicial
-  , finalStates  :: [State]        -- lista de estados finais/aceitadores
-  , transitions  :: [Transition]   -- lista de todas as transições
+  { autoType     :: AutomatonType
+  , alphabet     :: [Symbol]
+  , states       :: [State]
+  , initialState :: State
+  , finalStates  :: [State]
+  , transitions  :: [Transition]
   } deriving (Show, Eq)
 
--- =============================
--- Instâncias JSON/YAML
--- Definem como serializar e deserializar os tipos de/para YAML
--- =============================
+-- =====================================================================
+-- Serialização / Deserialização YAML (via Data.Aeson)
+-- =====================================================================
 
--- Lê o tipo do autômato a partir de uma string YAML ("dfa", "nfa", "nfae")
 instance FromJSON AutomatonType where
-  parseJSON (String "dfa")  = return DFA   -- "dfa" → construtor DFA
-  parseJSON (String "nfa")  = return NFA   -- "nfa" → construtor NFA
-  parseJSON (String "nfae") = return NFAE  -- "nfae" → construtor NFAE
-  parseJSON _ = fail "Invalid automaton type"  -- qualquer outra string falha
+  parseJSON (String "dfa")  = return DFA
+  parseJSON (String "nfa")  = return NFA
+  parseJSON (String "nfae") = return NFAE
+  parseJSON _ = fail "Tipo inválido: esperado \"dfa\", \"nfa\" ou \"nfae\""
 
--- Converte o tipo do autômato para string ao escrever no YAML
 instance ToJSON AutomatonType where
-  toJSON DFA  = "dfa"   -- DFA → "dfa"
-  toJSON NFA  = "nfa"   -- NFA → "nfa"
-  toJSON NFAE = "nfae"  -- NFAE → "nfae"
+  toJSON DFA  = "dfa"
+  toJSON NFA  = "nfa"
+  toJSON NFAE = "nfae"
 
--- Lê uma Transition a partir de um objeto YAML com campos "from", "symbol" e "to"
 instance FromJSON Transition where
   parseJSON = withObject "Transition" $ \v ->
-    Transition <$> v .: "from"    -- lê o campo "from"
-               <*> v .: "symbol"  -- lê o campo "symbol"
-               <*> v .: "to"      -- lê o campo "to" (lista de estados)
+    Transition <$> v .: "from" <*> v .: "symbol" <*> v .: "to"
 
--- Serializa uma Transition para objeto YAML com campos "from", "symbol" e "to"
 instance ToJSON Transition where
-  toJSON (Transition f s t) =
-    object ["from" .= f, "symbol" .= s, "to" .= t]  -- monta objeto com os três campos
+  toJSON (Transition f s t) = object ["from" .= f, "symbol" .= s, "to" .= t]
 
--- Lê um Automaton completo a partir de um objeto YAML
 instance FromJSON Automaton where
   parseJSON = withObject "Automaton" $ \v ->
-    Automaton <$> v .: "type"          -- tipo do autômato
-              <*> v .: "alphabet"      -- lista de símbolos
-              <*> v .: "states"        -- lista de estados
-              <*> v .: "initial_state" -- estado inicial
-              <*> v .: "final_states"  -- estados finais
-              <*> v .: "transitions"   -- lista de transições
+    Automaton <$> v .: "type"
+              <*> v .: "alphabet"
+              <*> v .: "states"
+              <*> v .: "initial_state"
+              <*> v .: "final_states"
+              <*> v .: "transitions"
 
--- Serializa um Automaton completo para objeto YAML
 instance ToJSON Automaton where
   toJSON a =
-    object [ "type"          .= autoType a      -- campo "type"
-           , "alphabet"      .= alphabet a      -- campo "alphabet"
-           , "states"        .= states a        -- campo "states"
-           , "initial_state" .= initialState a  -- campo "initial_state"
-           , "final_states"  .= finalStates a   -- campo "final_states"
-           , "transitions"   .= transitions a   -- campo "transitions"
+    object [ "type"          .= autoType a
+           , "alphabet"      .= alphabet a
+           , "states"        .= states a
+           , "initial_state" .= initialState a
+           , "final_states"  .= finalStates a
+           , "transitions"   .= transitions a
            ]
 
--- =============================
--- ε-closure (fecho épsilon)
--- Calcula todos os estados alcançáveis a partir de um estado
--- usando apenas transições epsilon (sem consumir símbolo)
--- =============================
+-- =====================================================================
+-- ε-fecho (ε-closure)
+-- Computa ε*(q) = conjunto de estados alcançáveis a partir de q por
+-- zero ou mais transições ε, via busca em largura sobre o subgrafo
+-- de transições ε do autômato.
+-- =====================================================================
 
--- Retorna a ε-closure de um estado: o estado em si mais todos alcançáveis via epsilon
 epsilonClosure :: Automaton -> State -> [State]
-epsilonClosure auto s = go [s] []  -- inicia com o próprio estado na fila, visitados vazio
+epsilonClosure auto s = go [s] []
   where
-    -- Caso base: fila vazia → retorna todos os estados visitados
     go [] visited = visited
     go (x:xs) visited
-      -- Se x já foi visitado, ignora e continua com o restante da fila
       | x `elem` visited = go xs visited
       | otherwise =
-          -- Coleta todos os estados destino de transições epsilon saindo de x
           let epsMoves = concat
                 [ to t
-                | t <- transitions auto  -- percorre todas as transições
-                , from t == x            -- que partem de x
-                , symbol t == "epsilon"  -- que são transições epsilon
+                | t <- transitions auto
+                , from t == x
+                , symbol t == "epsilon"
                 ]
-          -- Adiciona os novos estados à fila e marca x como visitado
           in go (xs ++ epsMoves) (x : visited)
 
--- =============================
--- Remoção de transições epsilon (NFA-ε → NFA)
--- Para cada estado e símbolo, calcula para onde se pode ir
--- passando primeiro por qualquer número de transições epsilon
--- =============================
+-- =====================================================================
+-- Remoção de transições ε (NFAε → NFA)
+-- Implementa a transformação formal:
+--   δ'(q, a) = ε*(∪{ δ(p, a) | p ∈ ε*(q) })
+-- Um estado q torna-se final no NFA resultante se ε*(q) ∩ F ≠ ∅.
+-- =====================================================================
 
--- Converte um NFAE em NFA equivalente sem transições epsilon
 removeEpsilon :: Automaton -> Automaton
 removeEpsilon auto =
   auto
-    { autoType = NFA           -- o resultado é um NFA
-    , transitions = newTransitions  -- substitui as transições originais
-    , finalStates = newFinals  -- atualiza os estados finais
+    { autoType    = NFA
+    , transitions = newTransitions
+    , finalStates = newFinals
     }
   where
-    -- Atalho: calcula a ε-closure de um estado no autômato original
     cls s = epsilonClosure auto s
 
-    -- Gera as novas transições sem epsilon:
-    -- para cada estado s e símbolo a, calcula os estados alcançáveis
-    -- lendo a a partir de qualquer estado na ε-closure de s
     newTransitions =
-      nub  -- remove transições duplicadas
-        [ Transition s a (nub finalTargets)  -- cria transição sem epsilon
-        | s <- states auto                   -- para cada estado do autômato
-        , a <- alphabet auto                 -- para cada símbolo do alfabeto
-        , let closureStates = cls s          -- ε-closure da origem: ε-closure(q)
-        , let rawTargets =
-                concat
-                  [ to t
-                  | q <- closureStates     -- para cada estado na ε-closure de s
-                  , t <- transitions auto  -- percorre as transições
-                  , from t == q            -- que partem de q
-                  , symbol t == a          -- lendo o símbolo a
-                  ]
-        -- δ'(q,a) = ε-closure(∪{δ(p,a) | p ∈ ε-closure(q)}): aplica ε-closure nos destinos
-        , let finalTargets = concatMap cls rawTargets
-        , not (null finalTargets)  -- só inclui a transição se houver destinos
+      nub
+        [ Transition s a (nub finalTargets)
+        | s <- states auto
+        , a <- alphabet auto
+        , let closureStates = cls s
+        , let rawTargets    = concat
+                [ to t
+                | q <- closureStates
+                , t <- transitions auto
+                , from t == q
+                , symbol t == a
+                ]
+        , let finalTargets  = concatMap cls rawTargets
+        , not (null finalTargets)
         ]
 
-    -- Um estado s passa a ser final se algum estado em sua ε-closure era final no original
     newFinals =
-      [ s
-      | s <- states auto                          -- para cada estado
-      , any (`elem` finalStates auto) (cls s)     -- se algum da ε-closure é final
-      ]
+      [ s | s <- states auto, any (`elem` finalStates auto) (cls s) ]
 
--- =============================
--- Construção de Subconjuntos (NFA → DFA)
--- Converte NFA em DFA onde cada estado do DFA representa
--- um conjunto de estados do NFA
--- =============================
+-- =====================================================================
+-- Construção de subconjuntos (NFA → DFA)
+-- Cada estado do DFA representa um subconjunto de estados do NFA,
+-- codificado canonicamente como "{q_i,q_j,...}" (elementos ordenados).
+-- A BFS explora todos os subconjuntos alcançáveis a partir de {q₀}.
+-- =====================================================================
 
--- Tipo auxiliar: um estado do DFA é representado por uma lista de estados do NFA
 type DFAState = [State]
 
--- Remove duplicatas e ordena uma lista de estados (garante forma canônica)
+-- Normaliza um subconjunto: remove duplicatas e ordena lexicograficamente,
+-- garantindo uma representação canônica única para cada conjunto de estados.
 normalize :: [State] -> [State]
-normalize = sort . nub  -- primeiro remove duplicatas, depois ordena
+normalize = sort . nub
 
--- Converte um conjunto de estados NFA no nome do estado DFA correspondente.
--- Usa notação de conjunto para ficar legível: ["q0","q1"] → "{q0,q1}"
--- O estado morto (conjunto vazio) recebe o nome "{}"
+-- Codifica um subconjunto de estados NFA como identificador de estado DFA.
+-- Convenção adotada: [] → "{}" (estado morto); [q_i,...] → "{q_i,...}".
 dfaStateName :: DFAState -> State
 dfaStateName [] = "{}"
 dfaStateName ss = "{" ++ intercalate "," ss ++ "}"
 
--- Calcula os estados do NFA alcançáveis a partir de um conjunto de estados lendo um símbolo
+-- Função de transição não-determinística estendida a conjuntos:
+-- δ(S, a) = ∪{ δ(s, a) | s ∈ S }.
 move :: Automaton -> [State] -> Symbol -> [State]
 move auto sts sym =
-  nub  -- remove destinos duplicados
+  nub
     [ t'
-    | s <- sts               -- para cada estado no conjunto atual
-    , t <- transitions auto  -- percorre todas as transições
-    , from t == s            -- que partem de s
-    , symbol t == sym        -- lendo o símbolo sym
-    , t' <- to t             -- coleta cada estado destino
+    | s  <- sts
+    , t  <- transitions auto
+    , from t == s
+    , symbol t == sym
+    , t' <- to t
     ]
 
--- Aplica a construção de subconjuntos para converter um NFA em DFA equivalente
 subsetConstruction :: Automaton -> Automaton
 subsetConstruction nfa =
   Automaton
-    { autoType = DFA                              -- resultado é um DFA
-    , alphabet = alphabet nfa                     -- mesmo alfabeto do NFA
-    , states = map dfaStateName dfaStates         -- estados nomeados como "{q0,q1}"
-    , initialState = dfaStateName start           -- estado inicial do DFA
-    , finalStates = map dfaStateName dfaFinals    -- estados finais do DFA
-    , transitions = dfaTransitions                -- transições calculadas
+    { autoType     = DFA
+    , alphabet     = alphabet nfa
+    , states       = map dfaStateName dfaStates
+    , initialState = dfaStateName start
+    , finalStates  = map dfaStateName dfaFinals
+    , transitions  = dfaTransitions
     }
   where
-    -- Estado inicial do DFA: conjunto contendo apenas o estado inicial do NFA
     start = normalize [initialState nfa]
 
-    -- BFS: explora todos os estados do DFA a partir da fila de estados a processar
-    go [] visited = visited  -- fila vazia: retorna todos os estados descobertos
+    go [] visited = visited
     go (q:queue) visited
-      -- Se q já foi visitado, pula para o próximo
       | q `elem` visited = go queue visited
       | otherwise =
-          -- Calcula os conjuntos de estados destino para cada símbolo do alfabeto
-          let next =
-                [ normalize (move nfa q a)  -- conjunto de estados após ler a a partir de q
-                | a <- alphabet nfa          -- para cada símbolo
-                ]
-          -- Adiciona os novos conjuntos à fila e marca q como visitado
+          let next = [ normalize (move nfa q a) | a <- alphabet nfa ]
           in go (queue ++ next) (q : visited)
 
-    -- Conjunto de todos os estados do DFA (descobertos pelo BFS).
-    -- Decisão de projeto: o estado morto (conjunto vazio []) é excluído
-    -- intencionalmente, produzindo um DFA incompleto (parcial). Esta simplificação
-    -- reduz o número de estados sem afetar a correção do reconhecimento —
-    -- transições ausentes equivalem implicitamente à rejeição. Avaliado e
-    -- adotado como forma de simplificação do resultado gerado, conforme discutido em aula.
+    -- O estado morto (subconjunto vazio) é excluído intencionalmente,
+    -- produzindo um DFA parcial. Transições ausentes equivalem à rejeição,
+    -- reduzindo o número de estados sem afetar a linguagem reconhecida.
     dfaStates = filter (not . null) (go [start] [])
 
-    -- Estados finais do DFA: conjuntos que contêm pelo menos um estado final do NFA
     dfaFinals =
-      [ s
-      | s <- dfaStates                      -- para cada estado do DFA
-      , any (`elem` finalStates nfa) s      -- se algum estado do conjunto é final no NFA
-      ]
+      [ s | s <- dfaStates, any (`elem` finalStates nfa) s ]
 
-    -- Transições do DFA: para cada estado-conjunto e símbolo, calcula o conjunto destino
     dfaTransitions =
-      [ Transition (dfaStateName s) a [dfaStateName t]  -- nomes limpos "{q0,q1}"
-      | s <- dfaStates                                   -- para cada estado do DFA
-      , a <- alphabet nfa                                -- para cada símbolo do alfabeto
-      , let t = normalize (move nfa s a)                -- calcula o conjunto destino
-      , not (null t)                                     -- ignora transições para conjunto vazio
+      [ Transition (dfaStateName s) a [dfaStateName t]
+      | s <- dfaStates
+      , a <- alphabet nfa
+      , let t = normalize (move nfa s a)
+      , not (null t)
       ]
 
--- Compara nomes de estados do DFA por cardinalidade do conjunto NFA codificado
--- e depois lexicograficamente. Evita a armadilha da ordem ASCII em que
--- "{q0,q1}" < "{q0}" porque ',' (44) < '}' (125), o que produziria
--- representantes contra-intuitivos na minimização (ex.: estado inicial nomeado
--- com um conjunto maior em vez do singleton).
+-- Ordena identificadores de estado DFA por cardinalidade do subconjunto
+-- NFA codificado e, como critério de desempate, lexicograficamente.
+-- Motivação: a ordem ASCII pura produz "{q0,q1}" < "{q0}" (pois ',' < '}'),
+-- elegendo representantes contra-intuitivos na minimização — por exemplo,
+-- um estado inicial nomeado com o conjunto maior em vez do singleton.
 compareStateNames :: State -> State -> Ordering
 compareStateNames a b = compare (stateCount a, a) (stateCount b, b)
   where
     stateCount "{}" = 0 :: Int
     stateCount s    = 1 + length (filter (== ',') s)
 
--- =============================
--- Minimização do DFA
--- Algoritmo de refinamento de partições (Hopcroft simplificado):
--- começa com {estados finais} e {estados não-finais} e divide grupos
--- cujos estados têm comportamentos distintos, até a partição estabilizar.
--- Cada grupo final vira um único estado no DFA mínimo.
--- =============================
+-- =====================================================================
+-- Minimização do DFA (refinamento de partições)
+-- Variante do algoritmo de Hopcroft: inicializa a partição com os dois
+-- blocos {F, Q\F} e refina iterativamente até atingir ponto fixo.
+-- Dois estados s, s' são equivalentes se, para todo símbolo a, ambos
+-- transitam para o mesmo bloco da partição corrente (mesma assinatura).
+-- Cada bloco final é colapsado em um único estado representante.
+-- =====================================================================
 
--- Minimiza um DFA removendo estados equivalentes (indistinguíveis)
 minimizeDFA :: Automaton -> Automaton
 minimizeDFA dfa = buildMinDFA finalPartition
   where
-    -- Função de transição parcial: dado estado e símbolo, retorna o destino (se existir)
+    -- Função de transição parcial: retorna o destino único de (s, a).
     trans s a = listToMaybe
       [ head (to t)
-      | t <- transitions dfa  -- percorre todas as transições
-      , from t == s            -- que partem de s
-      , symbol t == a          -- lendo o símbolo a
-      , not (null (to t))      -- com destino não vazio
+      | t <- transitions dfa
+      , from t == s
+      , symbol t == a
+      , not (null (to t))
       ]
 
-    -- Partição inicial: dois grupos — estados finais e estados não-finais
-    -- filter remove grupos vazios (caso todos os estados sejam finais ou nenhum seja)
     initialPartition = filter (not . null)
       [ sort (finalStates dfa)
       , sort [s | s <- states dfa, s `notElem` finalStates dfa]
       ]
 
-    -- Retorna o índice do grupo ao qual um estado pertence na partição p
+    -- Índice do bloco da partição p ao qual o estado s pertence.
     groupOf p s = findIndex (s `elem`) p
 
-    -- Assinatura de um estado em relação à partição p:
-    -- para cada símbolo do alfabeto, qual grupo o estado alcança?
-    -- Nothing significa sem transição para aquele símbolo
+    -- Assinatura de distinguibilidade de s em relação à partição p:
+    -- vetor dos índices de bloco para cada símbolo do alfabeto.
+    -- Nothing indica ausência de transição (DFA parcial).
     signature p s = [groupOf p =<< trans s a | a <- alphabet dfa]
 
-    -- Refina um único grupo: estados com assinaturas diferentes são separados
+    -- Refinamento de um bloco: estados com assinaturas distintas
+    -- são separados em subgrupos distintos.
     refineGroup p grp =
       let sorted = sortBy (\x y -> compare (signature p x) (signature p y)) grp
           groups = groupBy (\x y -> signature p x == signature p y) sorted
-      in map sort groups  -- cada subgrupo ordenado
+      in map sort groups
 
-    -- Aplica uma rodada de refinamento em toda a partição
     refineOnce p = concatMap (refineGroup p) p
 
-    -- Repete o refinamento até a partição não mudar mais (estabilização).
-    -- Refinamento só divide grupos, nunca une; portanto p' == p é condição
-    -- necessária e suficiente para convergência (mais preciso que comparar length).
+    -- Iteração até ponto fixo. Como refinamento é monótono (apenas divide
+    -- blocos, nunca os une), a condição p' == p é necessária e suficiente
+    -- para a convergência do algoritmo.
     refineUntilStable p =
       let p' = refineOnce p
       in if p' == p then p else refineUntilStable p'
 
     finalPartition = refineUntilStable initialPartition
 
-    -- Constrói o DFA minimizado a partir da partição final estável
+    -- Constrói o DFA mínimo colapsando cada bloco em seu representante.
+    -- O representante é o estado de menor cardinalidade (via compareStateNames)
+    -- para preservar identificadores intuitivos (ex.: "{q0}" como inicial).
     buildMinDFA partition =
-      let -- Usa o estado de menor cardinalidade (e depois lexicográfico) como
-          -- representante do grupo, via compareStateNames, evitando a armadilha ASCII.
-          rep grp    = head (sortBy compareStateNames grp)
-          -- Encontra o representante do grupo ao qual s pertence
+      let rep grp    = head (sortBy compareStateNames grp)
           repOf s    = rep $ head [g | g <- partition, s `elem` g]
-          newStates  = sort (map rep partition)               -- um estado por grupo
-          newInitial = repOf (initialState dfa)               -- representante do grupo inicial
-          newFinals  = nub (sort (map repOf (finalStates dfa))) -- representantes dos grupos finais
+          newStates  = sort (map rep partition)
+          newInitial = repOf (initialState dfa)
+          newFinals  = nub (sort (map repOf (finalStates dfa)))
           newTrans   = nub
             [ Transition (repOf (from t)) (symbol t) [repOf (head (to t))]
-            | t <- transitions dfa   -- remapeia cada transição para representantes
+            | t <- transitions dfa
             , not (null (to t))
             ]
       in Automaton
@@ -346,65 +289,58 @@ minimizeDFA dfa = buildMinDFA finalPartition
            , transitions  = newTrans
            }
 
--- =============================
+-- =====================================================================
 -- Serializador YAML customizado
--- Produz o mesmo formato do input: arrays inline, chaves na ordem correta
--- e aspas duplas em todos os valores de string.
--- O encoder padrão do Data.Yaml usa ordem alfabética de chaves e estilo
--- bloco para listas, o que diverge do formato de entrada.
--- =============================
+-- O encoder padrão de Data.Yaml ordena chaves alfabeticamente e produz
+-- listas em bloco, divergindo do formato de entrada. Este serializador
+-- garante a ordem canônica de campos, listas inline e aspas duplas.
+-- =====================================================================
 
--- Converte o tipo do autômato para a string YAML correspondente
 autoTypeToStr :: AutomatonType -> String
 autoTypeToStr DFA  = "dfa"
 autoTypeToStr NFA  = "nfa"
 autoTypeToStr NFAE = "nfae"
 
--- Envolve uma string em aspas duplas, escapando '"' e '\' internos
+-- Envolve uma string em aspas duplas, escapando '"' e '\' internos.
 yamlQuote :: String -> String
 yamlQuote s = "\"" ++ concatMap escape s ++ "\""
   where
-    escape '"'  = "\\\""  -- aspas duplas viram \"
-    escape '\\' = "\\\\"  -- barra invertida vira \\
-    escape c    = [c]      -- demais caracteres passam sem alteração
+    escape '"'  = "\\\""
+    escape '\\' = "\\\\"
+    escape c    = [c]
 
--- Produz um array YAML no estilo inline: ["a", "b", "c"]
+-- Produz um array YAML inline: ["a", "b", "c"].
 yamlInlineList :: [String] -> String
 yamlInlineList xs = "[" ++ intercalate ", " (map yamlQuote xs) ++ "]"
 
--- Serializa uma transição como bloco indentado de 2 espaços
 transitionToYaml :: Transition -> String
 transitionToYaml t =
-  "  - from: "   ++ yamlQuote (from t)   ++ "\n" ++  -- origem da transição
-  "    symbol: " ++ yamlQuote (symbol t) ++ "\n" ++  -- símbolo lido
-  "    to: "     ++ yamlInlineList (to t) ++ "\n"    -- destino(s) inline
+  "  - from: "   ++ yamlQuote (from t)    ++ "\n" ++
+  "    symbol: " ++ yamlQuote (symbol t)  ++ "\n" ++
+  "    to: "     ++ yamlInlineList (to t) ++ "\n"
 
--- Serializa o Automaton completo, respeitando a ordem de chaves do input:
--- type → alphabet → states → initial_state → final_states → transitions
+-- Serializa um Automaton na ordem canônica de campos:
+-- type → alphabet → states → initial_state → final_states → transitions.
 formatAutomaton :: Automaton -> String
 formatAutomaton a =
-  "type: "          ++ autoTypeToStr (autoType a)        ++ "\n" ++
-  "alphabet: "      ++ yamlInlineList (alphabet a)       ++ "\n" ++
-  "states: "        ++ yamlInlineList (states a)         ++ "\n" ++
-  "initial_state: " ++ yamlQuote (initialState a)        ++ "\n" ++
-  "final_states: "  ++ yamlInlineList (finalStates a)    ++ "\n" ++
+  "type: "          ++ autoTypeToStr (autoType a)     ++ "\n" ++
+  "alphabet: "      ++ yamlInlineList (alphabet a)    ++ "\n" ++
+  "states: "        ++ yamlInlineList (states a)      ++ "\n" ++
+  "initial_state: " ++ yamlQuote (initialState a)     ++ "\n" ++
+  "final_states: "  ++ yamlInlineList (finalStates a) ++ "\n" ++
   "transitions:\n"  ++ concatMap transitionToYaml (transitions a)
 
--- =============================
--- MAIN
--- Ponto de entrada do programa.
--- Lê um autômato de um arquivo YAML, executa o pipeline adequado ao tipo
--- da entrada e salva dois arquivos: o autômato intermediário (NFA sem ε)
--- e o DFA mínimo final.
---
--- Uso: ./run.sh input.yaml output_nfa.yaml output_dfa.yaml
--- =============================
+-- =====================================================================
+-- Ponto de entrada
+-- Pipeline de conversão: NFAε → NFA → DFA → DFA mínimo.
+-- Recebe três argumentos: arquivo de entrada, saída do NFA intermediário
+-- e saída do DFA mínimo. Os estágios ativos dependem do tipo da entrada.
+-- =====================================================================
 
 main :: IO ()
 main = do
   args <- getArgs
   case args of
-    -- Espera exatamente três argumentos: entrada, saída NFA e saída DFA
     [input, outputNfa, outputDfa] -> do
       result <- decodeFileEither input
       case result of
@@ -412,18 +348,14 @@ main = do
         Right auto -> do
           case autoType auto of
 
-            -- Entrada já é DFA: a remoção de epsilon e a construção de
-            -- subconjuntos não se aplicam. Exporta o próprio DFA como
-            -- "intermediário" e aplica minimização diretamente.
+            -- Entrada já é DFA: minimização direta, sem conversão prévia.
             DFA -> do
               let minDfa = minimizeDFA auto
               writeFile outputNfa (formatAutomaton auto)
               writeFile outputDfa (formatAutomaton minDfa)
               putStrLn "✅ Entrada já é um DFA — minimização aplicada."
 
-            -- Entrada é NFA (sem transições epsilon): pula removeEpsilon.
-            -- Exporta o NFA original como intermediário e aplica
-            -- construção de subconjuntos + minimização.
+            -- Entrada é NFA: omite removeEpsilon, aplica subsetConstruction.
             NFA -> do
               let dfa    = subsetConstruction auto
               let minDfa = minimizeDFA dfa
@@ -431,10 +363,7 @@ main = do
               writeFile outputDfa (formatAutomaton minDfa)
               putStrLn "✅ NFA → DFA concluído."
 
-            -- Entrada é NFAε: pipeline completo.
-            -- Passo 1 — removeEpsilon  : NFAε → NFA
-            -- Passo 2 — subsetConstruction: NFA → DFA
-            -- Passo 3 — minimizeDFA    : DFA → DFA mínimo
+            -- Pipeline completo em três estágios.
             NFAE -> do
               let nfa    = removeEpsilon auto
               let dfa    = subsetConstruction nfa

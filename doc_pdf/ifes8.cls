@@ -28,7 +28,7 @@
 
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{abntex2}}
 \ProcessOptions\relax
-\LoadClass[12pt,a4paper,part=TITLE]{abntex2}
+\LoadClass[12pt,a4paper]{abntex2}
 %\LoadClass[12pt,a4paper,part=TITLE,chapter=title]{abntex2}
 
 \RequirePackage{hyperref}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dfa_batch.sh — Converte em lote todos os autômatos de Files/NFA para DFA mínimo.
+# dfa_batch.sh — Converte em lote todos os autômatos de Files/NFAe para DFA mínimo.
 #          Pipeline por arquivo (conforme tipo de entrada):
 #            NFAε → NFA → DFA mínimo → Files/NFA/<nome> e Files/DFA/<nome>
 #            NFA  →       DFA mínimo → Files/NFA/<nome> e Files/DFA/<nome>
@@ -10,7 +10,7 @@
 
 cd "$(dirname "$0")/.."
 
-INPUT_DIR=${1:-Files/NFA}
+INPUT_DIR=${1:-Files/NFAe}
 NFA_DIR=Files/NFA
 DFA_DIR=Files/DFA
 

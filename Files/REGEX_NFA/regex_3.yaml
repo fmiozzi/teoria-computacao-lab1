@@ -1,60 +1,39 @@
 type: nfa
 alphabet: ["a", "b"]
-states: ["q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12", "q13"]
+states: ["q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11"]
 initial_state: "q0"
-final_states: ["q13"]
+final_states: ["q1", "q2", "q3", "q5", "q6", "q7", "q9", "q10", "q11"]
 transitions:
   - from: "q0"
     symbol: "a"
-    to: ["q10", "q9", "q8", "q6", "q4", "q1", "q2", "q3", "q5"]
-  - from: "q0"
-    symbol: "b"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q7"]
+    to: ["q7", "q11", "q10", "q8", "q6", "q3", "q4", "q2", "q1"]
   - from: "q1"
     symbol: "a"
-    to: ["q10", "q9"]
+    to: ["q7", "q11", "q10", "q8", "q6", "q3", "q4", "q5"]
+  - from: "q1"
+    symbol: "b"
+    to: ["q7", "q9"]
   - from: "q2"
     symbol: "a"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q5"]
+    to: ["q7", "q11", "q10", "q8", "q6", "q3", "q4", "q5"]
   - from: "q2"
     symbol: "b"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q7"]
-  - from: "q3"
-    symbol: "a"
-    to: ["q10", "q9", "q8", "q6", "q4", "q1", "q2", "q3", "q5"]
+    to: ["q7", "q9"]
   - from: "q3"
     symbol: "b"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q7"]
+    to: ["q7", "q9"]
   - from: "q4"
     symbol: "a"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q5"]
+    to: ["q7", "q11", "q10", "q8", "q6", "q3", "q4", "q5"]
   - from: "q5"
     symbol: "a"
-    to: ["q10", "q9", "q8", "q6", "q4", "q1", "q2", "q3", "q5"]
+    to: ["q7", "q11", "q10", "q8", "q6", "q3", "q4", "q5"]
   - from: "q5"
     symbol: "b"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q7"]
+    to: ["q7", "q9"]
   - from: "q6"
     symbol: "b"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q7"]
-  - from: "q7"
-    symbol: "a"
-    to: ["q10", "q9", "q8", "q6", "q4", "q1", "q2", "q3", "q5"]
-  - from: "q7"
-    symbol: "b"
-    to: ["q8", "q6", "q4", "q1", "q2", "q3", "q7"]
+    to: ["q7", "q9"]
   - from: "q8"
-    symbol: "a"
-    to: ["q10", "q9"]
-  - from: "q9"
     symbol: "b"
-    to: ["q12", "q11"]
-  - from: "q10"
-    symbol: "b"
-    to: ["q12", "q11"]
-  - from: "q11"
-    symbol: "b"
-    to: ["q13"]
-  - from: "q12"
-    symbol: "b"
-    to: ["q13"]
+    to: ["q7", "q9"]

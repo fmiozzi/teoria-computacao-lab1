@@ -9,10 +9,13 @@
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{tikz}
-\usetikzlibrary{automata,positioning,arrows}
+
+\usetikzlibrary{automata, positioning, arrows.meta}
+
+\hypersetup{hypertexnames=false}
 
 \tikzset{
-  >=stealth',
+  >=Stealth,
   initial text={},
   every state/.style={draw, circle, minimum size=1.0cm, font=\small},
 }
@@ -25,11 +28,24 @@
 \orientador{Prof. Jefferson Oliveira Andrade}
 \instituicao{Instituto Federal do Espírito Santo}
 \curso{Mestrado Profissional em Computação Aplicada}
-\preambulo{Relatório de atividade de laboratório apresentado ao
+\preambulo{%
+  Relatório de atividade de laboratório apresentado ao
   Mestrado Profissional em Computação Aplicada do Instituto Federal do
-  Espírito Santo como parte das atividades da disciplina Teoria da
-  Computação, semestre 2026/1, sob orientação do
-  Prof.\ Jefferson Oliveira Andrade.}
+  Espírito Santo, como parte das atividades da disciplina Teoria da
+  Computação, semestre 2026/1.
+  \par\medskip\noindent\textbf{Resumo.}
+  Este trabalho descreve a implementação, em Haskell, de algoritmos
+  clássicos de teoria dos autômatos: (1)~conversão de
+  NFA$\varepsilon$ para DFA mínimo via remoção de
+  $\varepsilon$-transições, construção de subconjuntos e minimização
+  por Hopcroft; e (2)~Construção de Thompson para converter expressões
+  regulares em NFA$\varepsilon$, seguida do mesmo pipeline de
+  conversão. São documentados seis autômatos e cinco expressões
+  regulares de exemplo, com entrada e saída em formato YAML. A
+  Parte~3 apresenta soluções da plataforma \textit{Regex Crossword}.
+  \par\medskip\noindent\textbf{Palavras-chave:} Autômatos finitos.
+  Expressões regulares. Construção de Thompson. Algoritmo de Hopcroft.
+  Haskell.}
 
 % -----------------------------------------------------------------
 \newcommand{\rx}[1]{\texttt{#1}}
@@ -37,18 +53,28 @@
 \newcommand{\heart}{\ensuremath{\heartsuit}}
 \newcommand{\eps}{\varepsilon}
 
+\raggedbottom
+
 % -----------------------------------------------------------------
 \begin{document}
+
+\hypersetup{pageanchor=false}
 
 \imprimircapa
 
 \begin{folhaderosto}
+  \folhaderostocontent
 \end{folhaderosto}
 
+\clearpage
+\listoffigures*
+
+\clearpage
 \pdfbookmark[0]{\contentsname}{toc}
 \tableofcontents*
-\cleardoublepage
+\clearpage
 
+\hypersetup{pageanchor=true}
 \textual
 
 % =================================================================
@@ -59,14 +85,15 @@ Este relatório documenta as três partes do Laboratório~01 da disciplina
 Teoria da Computação do PPCOMPI/IFES.
 
 A \textbf{Parte~1} trata da conversão de Autômatos Finitos Não-Determinísticos
-com transições~$\varepsilon$ (NFA$\varepsilon$) para Autômatos Finitos Determinísticos
-Mínimos (DFA), por meio de três etapas: remoção de transições~$\varepsilon$,
-construção de subconjuntos e minimização pelo algoritmo de Hopcroft.
-A implementação encontra-se em \texttt{Main.hs}.
+com transições~$\varepsilon$ (NFA$\varepsilon$) para Autômatos Finitos
+Determinísticos Mínimos (DFA), por meio de três etapas: remoção de
+transições~$\varepsilon$, construção de subconjuntos e minimização pelo
+algoritmo de Hopcroft. A implementação encontra-se em \texttt{Main.hs}.
 
-A \textbf{Parte~2} aborda a construção de Thompson, que converte uma expressão
-regular em um NFA$\varepsilon$, o qual é então convertido para DFA mínimo pelo mesmo
-pipeline da Parte~1. A implementação encontra-se em \texttt{Regex.hs}.
+A \textbf{Parte~2} aborda a construção de Thompson, que converte uma
+expressão regular em um NFA$\varepsilon$, o qual é então convertido para
+DFA mínimo pelo mesmo pipeline da Parte~1. A implementação encontra-se em
+\texttt{Regex.hs}.
 
 A \textbf{Parte~3} apresenta soluções para a plataforma \textit{Regex
 Crossword}, que exercita a leitura e escrita de expressões regulares.
@@ -77,31 +104,29 @@ Crossword}, que exercita a leitura e escrita de expressões regulares.
 
 \section{Visão Geral do Algoritmo}
 
-A conversão NFA$\varepsilon$ $\to$ DFA mínimo implementada em \texttt{Main.hs} realiza
-três etapas sequenciais:
+A conversão NFA$\varepsilon$ $\to$ DFA mínimo implementada em
+\texttt{Main.hs} realiza três etapas sequenciais:
 
 \begin{enumerate}
   \item \textbf{Remoção de transições $\varepsilon$:} para cada estado $q$,
-    computa-se o $\varepsilon$-fecho $\overline{\varepsilon}(q)$ — o conjunto
-    de estados alcançáveis a partir de $q$ por zero ou mais transições
-    $\varepsilon$. As transições do novo NFA são redefinidas incorporando
-    esses fechos.
+    computa-se o $\varepsilon$-fecho $\varepsilon^*(q)$ — o conjunto de
+    estados alcançáveis por zero ou mais transições~$\varepsilon$.
+    As transições do novo NFA incorporam esses fechos.
   \item \textbf{Construção de subconjuntos (\textit{subset construction}):}
-    os estados do DFA são subconjuntos de estados do NFA. O DFA inicial
-    corresponde ao $\varepsilon$-fecho do estado inicial do NFA, e as
-    transições são computadas iterativamente até que nenhum novo subconjunto
-    seja gerado.
-  \item \textbf{Minimização por Hopcroft:} o DFA resultante é minimizado
-    usando o algoritmo de Hopcroft, que particiona os estados em classes de
-    equivalência com base na distinguibilidade por strings de entrada.
+    cada estado do DFA representa um subconjunto de estados do NFA.
+    As transições são expandidas iterativamente a partir do
+    $\varepsilon$-fecho do estado inicial.
+  \item \textbf{Minimização por Hopcroft:} particiona os estados em classes
+    de equivalência por distinguibilidade, colapsando estados
+    indistinguíveis em um único representante.
 \end{enumerate}
 
-\section{Exemplo 1 --- \texttt{nfae\_simple} ($L = 0^*1$)}
+\section{Exemplo 1 --- \texttt{nfae\_simple} \texorpdfstring{($L = 0^*1$)}{(L = 0*1)}}
 
-O autômato \texttt{nfae\_simple} possui 3~estados sobre o alfabeto
-$\Sigma = \{0, 1\}$ e reconhece $L = 0^*1$ (zero ou mais $0$s seguidos de
-exatamente um $1$). A transição $\varepsilon$ de $q_0$ para $q_1$ permite
-que o autômato ``pule'' diretamente para o estado que aguarda o símbolo~$1$.
+O autômato \texttt{nfae\_simple} possui 3~estados sobre $\Sigma = \{0,1\}$
+e reconhece $L = 0^*1$. A transição~$\varepsilon$ de $q_0$ para $q_1$
+permite ao autômato alcançar o estado de espera do símbolo~$1$ sem consumir
+entrada.
 
 \begin{figure}[H]
   \centering
@@ -114,12 +139,9 @@ que o autômato ``pule'' diretamente para o estado que aguarda o símbolo~$1$.
       (q0) edge node {$0,\,\eps$} (q1)
       (q1) edge node {$1$} (q2);
   \end{tikzpicture}
-  \caption{NFA$\varepsilon$ \texttt{nfae\_simple}: estado inicial $q_0$, estado final $q_2$.}
+  \caption{NFA$\varepsilon$ \texttt{nfae\_simple}: $L = 0^*1$.}
   \label{fig:nfae-simple-nfae}
 \end{figure}
-
-Após a remoção das transições~$\varepsilon$, o NFA equivalente consolida o
-comportamento de $q_0$ absorvendo as transições de $q_1$:
 
 \begin{figure}[H]
   \centering
@@ -133,13 +155,9 @@ comportamento de $q_0$ absorvendo as transições de $q_1$:
       (q0) edge [bend right=25] node [below] {$1$} (q2)
       (q1) edge node {$1$} (q2);
   \end{tikzpicture}
-  \caption{NFA intermediário (sem transições~$\varepsilon$).}
+  \caption{NFA intermediário de \texttt{nfae\_simple} (sem transições~$\varepsilon$).}
   \label{fig:nfae-simple-nfa}
 \end{figure}
-
-O DFA mínimo resultante possui apenas 2~estados: o estado
-$\{q_0\}$ (inicial, não-final) e $\{q_2\}$ (final). O estado morto
-implícito, para entradas após $\{q_2\}$, é eliminado pela minimização.
 
 \begin{figure}[H]
   \centering
@@ -150,16 +168,16 @@ implícito, para entradas após $\{q_2\}$, é eliminado pela minimização.
       (A) edge [loop above] node {$0$} ()
       (A) edge node {$1$} (B);
   \end{tikzpicture}
-  \caption{DFA mínimo: $L = 0^*1$.}
+  \caption{DFA mínimo de \texttt{nfae\_simple}: $L = 0^*1$.}
   \label{fig:nfae-simple-dfa}
 \end{figure}
 
 % -----------------------------------------------------------------
-\section{Exemplo 2 --- \texttt{nfae\_02} ($L = \{a,b\}$)}
+\section{Exemplo 2 --- \texttt{nfae\_02} \texorpdfstring{($L = \{a,b\}$)}{(L = {a,b})}}
 
-O autômato \texttt{nfae\_02} possui 5~estados, usa transições~$\varepsilon$
-para modelar a escolha não-determinística entre $a$ e $b$, e reconhece
-$L = \{a, b\}$ (exatamente uma letra).
+O autômato \texttt{nfae\_02} possui 5~estados e reconhece $L = \{a,b\}$
+(exatamente uma letra). As transições~$\varepsilon$ de $q_0$ modelam a
+escolha não-determinística entre os ramos $a$ e $b$.
 
 \begin{figure}[H]
   \centering
@@ -176,11 +194,9 @@ $L = \{a, b\}$ (exatamente uma letra).
       (q2) edge node [below right] {$b$}    (q3)
       (q3) edge node               {$\eps$} (q4);
   \end{tikzpicture}
-  \caption{NFA$\varepsilon$ \texttt{nfae\_02}: $L = \{a, b\}$.}
+  \caption{NFA$\varepsilon$ \texttt{nfae\_02}: $L = \{a,b\}$.}
   \label{fig:nfae02-nfae}
 \end{figure}
-
-O DFA mínimo colapsa todos os estados intermediários em dois estados:
 
 \begin{figure}[H]
   \centering
@@ -191,16 +207,16 @@ O DFA mínimo colapsa todos os estados intermediários em dois estados:
       (A) edge [bend left=15]  node [above] {$a$} (B)
       (A) edge [bend right=15] node [below] {$b$} (B);
   \end{tikzpicture}
-  \caption{DFA mínimo: $L = \{a, b\}$.}
+  \caption{DFA mínimo de \texttt{nfae\_02}: $L = \{a,b\}$.}
   \label{fig:nfae02-dfa}
 \end{figure}
 
 % -----------------------------------------------------------------
-\section{Exemplo 3 --- \texttt{nfae\_04} ($L = \{ab\}$)}
+\section{Exemplo 3 --- \texttt{nfae\_04} \texorpdfstring{($L = \{ab\}$)}{(L = {ab})}}
 
-O autômato \texttt{nfae\_04} possui 4~estados e reconhece $L = \{ab\}$
-(somente a cadeia ``ab''). A transição~$\varepsilon$ entre $q_1$ e $q_2$
-serve como conector entre os dois estágios de leitura.
+O autômato \texttt{nfae\_04} possui 4~estados e reconhece $L = \{ab\}$.
+A transição~$\varepsilon$ entre $q_1$ e $q_2$ conecta os dois estágios
+de leitura.
 
 \begin{figure}[H]
   \centering
@@ -218,8 +234,8 @@ serve como conector entre os dois estágios de leitura.
   \label{fig:nfae04-nfae}
 \end{figure}
 
-Após a construção de subconjuntos, o estado $\{q_1, q_2\}$ surge porque
-$q_2$ pertence ao $\varepsilon$-fecho de $q_1$.
+Após a construção de subconjuntos, o estado $\{q_1,q_2\}$ surge porque
+$q_2 \in \varepsilon^*(q_1)$.
 
 \begin{figure}[H]
   \centering
@@ -231,49 +247,49 @@ $q_2$ pertence ao $\varepsilon$-fecho de $q_1$.
       (A) edge node {$a$} (B)
       (B) edge node {$b$} (C);
   \end{tikzpicture}
-  \caption{DFA mínimo: $L = \{ab\}$.}
+  \caption{DFA mínimo de \texttt{nfae\_04}: $L = \{ab\}$.}
   \label{fig:nfae04-dfa}
 \end{figure}
 
 % -----------------------------------------------------------------
-\section{Exemplo 4 --- \texttt{nfae\_06} ($L = (a|b)^*$)}
+\section{Exemplo 4 --- \texttt{nfae\_06} \texorpdfstring{($L = (a|b)^*$)}{(L = (a|b)*)}}
 
-O autômato \texttt{nfae\_06} é a construção de Thompson para
-$(a|b)^*$, com 8~estados. O estado inicial $q_0$ possui transições~$\varepsilon$
-diretas para $q_1$ (ramo interno do Kleene) e $q_7$ (estado final, para aceitar
-a cadeia vazia). O ciclo $q_6 \to q_1$ implementa a repetição.
+O autômato \texttt{nfae\_06} é a construção de Thompson para $(a|b)^*$,
+com 8~estados. O estado inicial $q_0$ possui transição~$\varepsilon$ direta
+para $q_7$ (aceitando a cadeia vazia) e para $q_1$ (ramo interno do Kleene).
+O arco $q_6 \to q_1$ implementa a repetição.
 
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[->, auto]
-    \node[state, initial] (q0) at (0,0)    {$q_0$};
-    \node[state]          (q1) at (2,0)    {$q_1$};
-    \node[state]          (q2) at (3.5,1.3){$q_2$};
-    \node[state]          (q3) at (5.5,1.3){$q_3$};
-    \node[state]          (q4) at (3.5,-1.3){$q_4$};
-    \node[state]          (q5) at (5.5,-1.3){$q_5$};
-    \node[state]          (q6) at (7,0)    {$q_6$};
-    \node[state, accepting](q7) at (9,0)   {$q_7$};
+  \begin{tikzpicture}[->, auto, font=\small]
+    \node[state, initial]    (q0) at (0,0)     {$q_0$};
+    \node[state]             (q1) at (2.5,0)   {$q_1$};
+    \node[state]             (q2) at (4.0, 2.0){$q_2$};
+    \node[state]             (q3) at (6.0, 2.0){$q_3$};
+    \node[state]             (q4) at (4.0,-2.0){$q_4$};
+    \node[state]             (q5) at (6.0,-2.0){$q_5$};
+    \node[state]             (q6) at (7.5,0)   {$q_6$};
+    \node[state, accepting]  (q7) at (9.5,0)   {$q_7$};
     \path
-      (q0) edge node [above]       {$\eps$} (q1)
-      (q0) edge [bend left=35]
-                node [above]       {$\eps$} (q7)
-      (q1) edge node [above left]  {$\eps$} (q2)
-      (q1) edge node [below left]  {$\eps$} (q4)
-      (q2) edge node [above]       {$a$}    (q3)
-      (q3) edge node [above right] {$\eps$} (q6)
-      (q4) edge node [below]       {$b$}    (q5)
-      (q5) edge node [below right] {$\eps$} (q6)
-      (q6) edge node [above]       {$\eps$} (q7)
-      (q6) edge [bend right=45, looseness=1.2]
-                node [below]       {$\eps$} (q1);
+      (q0) edge node [above]       {$\varepsilon$} (q1)
+      (q1) edge node [above left]  {$\varepsilon$} (q2)
+      (q1) edge node [below left]  {$\varepsilon$} (q4)
+      (q2) edge node [above]       {$a$}           (q3)
+      (q3) edge node [above right] {$\varepsilon$} (q6)
+      (q4) edge node [below]       {$b$}           (q5)
+      (q5) edge node [below right] {$\varepsilon$} (q6)
+      (q6) edge node [above]       {$\varepsilon$} (q7)
+      (q0) edge [bend left=18]
+           node [pos=0.5, above=6pt] {$\varepsilon$} (q7)
+      (q6) edge [bend left=40]
+           node [pos=0.5, below=6pt] {$\varepsilon$} (q1);
   \end{tikzpicture}
-  \caption{NFA$\varepsilon$ \texttt{nfae\_06} (construção de Thompson para $(a|b)^*$).}
+  \caption{NFA$\varepsilon$ \texttt{nfae\_06} — construção de Thompson para $(a|b)^*$.}
   \label{fig:nfae06-nfae}
 \end{figure}
 
 Como $(a|b)^*$ aceita qualquer cadeia sobre $\{a,b\}$, o DFA mínimo
-colapsa para um único estado, inicial e final, com auto-laços em $a$ e $b$:
+colapsa para um único estado, inicial e final:
 
 \begin{figure}[H]
   \centering
@@ -283,94 +299,159 @@ colapsa para um único estado, inicial e final, com auto-laços em $a$ e $b$:
       (D) edge [loop above] node {$a$} ()
       (D) edge [loop below] node {$b$} ();
   \end{tikzpicture}
-  \caption{DFA mínimo: $L = (a|b)^*$ (estado único, inicial e final).}
+  \caption{DFA mínimo de \texttt{nfae\_06}: $L = (a|b)^*$ (estado único, inicial e final).}
   \label{fig:nfae06-dfa}
 \end{figure}
 
 % -----------------------------------------------------------------
-\section{Exemplo 5 --- \texttt{nfae\_complex}}
+\section{Exemplo 5 --- \texttt{nfae\_08} \texorpdfstring{($L = (0|1)^*01$)}{(L = (0|1)*01)}}
 
-O autômato \texttt{nfae\_complex} possui 13~estados sobre
-$\Sigma = \{a,b,c\}$ e reconhece cadeias que: (i)~começam com $ab$ ou $cb$;
+O autômato \texttt{nfae\_08} possui 4~estados sobre $\Sigma = \{0,1\}$ e
+reconhece $L = (0|1)^*01$ — todas as cadeias que terminam com o sufixo
+``01''. O estado $q_0$ lê qualquer prefixo em $\{0,1\}^*$; a transição
+$\varepsilon$ para $q_1$ inicia o reconhecimento do sufixo.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[->, node distance=2.8cm, auto]
+    \node[state, initial]    (q0) {$q_0$};
+    \node[state]             (q1) [right of=q0] {$q_1$};
+    \node[state]             (q2) [right of=q1] {$q_2$};
+    \node[state, accepting]  (q3) [right of=q2] {$q_3$};
+    \path
+      (q0) edge [loop above] node {$0,1$}      ()
+      (q0) edge node {$\varepsilon$}            (q1)
+      (q1) edge node {$0$}                      (q2)
+      (q2) edge node {$1$}                      (q3);
+  \end{tikzpicture}
+  \caption{NFA$\varepsilon$ \texttt{nfae\_08}: $L = (0|1)^*01$.}
+  \label{fig:nfae08-nfae}
+\end{figure}
+
+A construção de subconjuntos seguida de minimização produz um DFA mínimo
+com 3~estados (Tabela~\ref{tab:nfae08-trans}). Os três estados codificam as
+situações relevantes ao longo da leitura: $D_0$ — nenhum prefixo útil para
+``01''; $D_1$ — o último caractere lido foi~$0$ (primeiro símbolo do
+sufixo); $D_2$ — os últimos dois caracteres foram ``01'' (aceito).
+
+\begin{table}[H]
+  \centering
+  \caption{Tabela de transições do DFA mínimo de \texttt{nfae\_08}.}
+  \label{tab:nfae08-trans}
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabular}{clcc}
+    \toprule
+    \textbf{Estado} & \textbf{Subconjunto NFA} & $0$ & $1$ \\
+    \midrule
+    $\to D_0$ & $\{q_0\}$           & $D_1$ & $D_0$ \\
+    $D_1$     & $\{q_0,q_1,q_2\}$  & $D_1$ & $D_2$ \\
+    $D_2\;*$  & $\{q_0,q_1,q_3\}$  & $D_1$ & $D_0$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[->, node distance=3.0cm, auto]
+    \node[state, initial]    (D0) {$D_0$};
+    \node[state]             (D1) [right of=D0] {$D_1$};
+    \node[state, accepting]  (D2) [right of=D1] {$D_2$};
+    \path
+      (D0) edge [loop above] node {$1$}             ()
+      (D0) edge node {$0$}                          (D1)
+      (D1) edge [loop above] node {$0$}             ()
+      (D1) edge node {$1$}                          (D2)
+      (D2) edge [bend left=25]  node [below] {$0$}  (D1)
+      (D2) edge [bend left=42]  node [below] {$1$}  (D0);
+  \end{tikzpicture}
+  \caption{DFA mínimo de \texttt{nfae\_08}: $L = (0|1)^*01$.}
+  \label{fig:nfae08-dfa}
+\end{figure}
+
+% -----------------------------------------------------------------
+\section{Exemplo 6 --- \texttt{nfae\_10}}
+\label{sec:nfae10}
+
+O autômato \texttt{nfae\_10} possui 13~estados sobre $\Sigma = \{a,b,c\}$
+e reconhece a linguagem $L$ das cadeias que: (i)~começam com $ab$ ou $cb$;
 (ii)~contêm ao menos um $c$ intermediário; e (iii)~terminam com $ba$ ou $cc$.
 
-A Figura~\ref{fig:nfae-complex-nfae} apresenta o diagrama do NFA$\varepsilon$, onde
-o par $(q_0 \to q_1 \to q_2, \; q_0 \to q_3 \to q_4) \to q_5$ codifica
-os prefixos alternativos, $q_6$ e $q_7$ modelam o meio da cadeia, e os
-sufixos $ba$ e $cc$ são capturados por $(q_8, q_9)$ e $(q_{10}, q_{11})$,
-respectivamente, convergindo para $q_{12}$.
+O grafo de transições (Figura~\ref{fig:nfae10-nfae}) estrutura-se em três
+segmentos: o par $(q_0 \to q_1 \to q_2,\; q_0 \to q_3 \to q_4) \to q_5$
+codifica os prefixos alternativos $ab$ e $cb$; $q_6$ e $q_7$ modelam o
+corpo intermediário (acumulação de qualquer cadeia com pelo menos um $c$);
+e os sufixos $ba$ e $cc$ são capturados por $(q_8,q_9)$ e
+$(q_{10},q_{11})$, convergindo para o estado final $q_{12}$.
 
 \begin{figure}[H]
   \centering
   \begin{tikzpicture}[->, auto, font=\footnotesize]
-    % Prefixo
-    \node[state, initial] (q0) at (0,0)     {$q_0$};
-    \node[state]          (q1) at (1.8,0.9) {$q_1$};
-    \node[state]          (q3) at (1.8,-0.9){$q_3$};
-    \node[state]          (q2) at (3.5,0.9) {$q_2$};
-    \node[state]          (q4) at (3.5,-0.9){$q_4$};
-    \node[state]          (q5) at (5.2,0)   {$q_5$};
-    % Meio
-    \node[state]          (q6) at (7,0)     {$q_6$};
-    \node[state]          (q7) at (8.8,0)   {$q_7$};
-    % Sufixos
-    \node[state]          (q8)  at (10.5,1.0)  {$q_8$};
-    \node[state]          (q9)  at (12.2,1.0)  {$q_9$};
-    \node[state]          (q10) at (10.5,-1.0) {$q_{10}$};
-    \node[state]          (q11) at (12.2,-1.0) {$q_{11}$};
-    \node[state, accepting](q12) at (14,0)    {$q_{12}$};
+    \node[state, initial] (q0) at (0,0)       {$q_0$};
+    \node[state]          (q1) at (1.8, 0.9)  {$q_1$};
+    \node[state]          (q3) at (1.8,-0.9)  {$q_3$};
+    \node[state]          (q2) at (3.5, 0.9)  {$q_2$};
+    \node[state]          (q4) at (3.5,-0.9)  {$q_4$};
+    \node[state]          (q5) at (5.2, 0)    {$q_5$};
+    \node[state]          (q6) at (7.0, 0)    {$q_6$};
+    \node[state]          (q7) at (8.8, 0)    {$q_7$};
+    \node[state]          (q8)  at (10.5, 1.0){$q_8$};
+    \node[state]          (q9)  at (12.2, 1.0){$q_9$};
+    \node[state]          (q10) at (10.5,-1.0){$q_{10}$};
+    \node[state]          (q11) at (12.2,-1.0){$q_{11}$};
+    \node[state, accepting](q12) at (14.0, 0) {$q_{12}$};
     \path
-      (q0) edge node [above left]  {$\eps$} (q1)
-      (q0) edge node [below left]  {$\eps$} (q3)
-      (q1) edge node [above]       {$a$}    (q2)
-      (q3) edge node [below]       {$c$}    (q4)
-      (q2) edge node [above right] {$b$}    (q5)
-      (q4) edge node [below right] {$b$}    (q5)
-      (q5) edge node               {$\eps$} (q6)
-      (q6) edge [loop above] node  {$a,b$}  ()
-      (q6) edge node [above]       {$c$}    (q7)
-      (q7) edge [loop above] node  {$a,b,c$}()
-      (q7) edge node [above left]  {$\eps$} (q8)
-      (q7) edge node [below left]  {$\eps$} (q10)
-      (q8) edge node [above]       {$b$}    (q9)
-      (q9) edge node [above right] {$a$}    (q12)
-      (q10) edge node [below]      {$c$}    (q11)
-      (q11) edge node [below right]{$c$}    (q12);
+      (q0)  edge node [above left]  {$\eps$} (q1)
+      (q0)  edge node [below left]  {$\eps$} (q3)
+      (q1)  edge node [above]       {$a$}    (q2)
+      (q3)  edge node [below]       {$c$}    (q4)
+      (q2)  edge node [above right] {$b$}    (q5)
+      (q4)  edge node [below right] {$b$}    (q5)
+      (q5)  edge node               {$\eps$} (q6)
+      (q6)  edge [loop above] node  {$a,b$}  ()
+      (q6)  edge node [above]       {$c$}    (q7)
+      (q7)  edge [loop above] node  {$a,b,c$}()
+      (q7)  edge node [above left]  {$\eps$} (q8)
+      (q7)  edge node [below left]  {$\eps$} (q10)
+      (q8)  edge node [above]       {$b$}    (q9)
+      (q9)  edge node [above right] {$a$}    (q12)
+      (q10) edge node [below]       {$c$}    (q11)
+      (q11) edge node [below right] {$c$}    (q12);
   \end{tikzpicture}
-  \caption{NFA$\varepsilon$ \texttt{nfae\_complex} (13~estados, $\Sigma = \{a,b,c\}$).}
-  \label{fig:nfae-complex-nfae}
+  \caption{NFA$\varepsilon$ \texttt{nfae\_10} (13~estados, $\Sigma = \{a,b,c\}$).}
+  \label{fig:nfae10-nfae}
 \end{figure}
 
 A construção de subconjuntos seguida de minimização produz um DFA com
-8~estados. A Tabela~\ref{tab:complex-estados} define a correspondência entre
-os estados renomeados ($D_0$--$D_7$) e os subconjuntos de estados do NFA.
+8~estados. A Tabela~\ref{tab:nfae10-estados} apresenta a correspondência
+entre os estados renomeados ($D_0$--$D_7$) e os subconjuntos de estados do
+NFA, e a Tabela~\ref{tab:nfae10-trans} detalha todas as transições.
 
 \begin{table}[H]
   \centering
-  \caption{Correspondência de estados — DFA de \texttt{nfae\_complex}.}
-  \label{tab:complex-estados}
+  \caption{Correspondência de estados — DFA mínimo de \texttt{nfae\_10}.}
+  \label{tab:nfae10-estados}
   \begin{tabular}{clc}
     \toprule
     \textbf{Estado DFA} & \textbf{Subconjunto NFA} & \textbf{Final?} \\
     \midrule
-    $D_0$ & $\{q_0\}$                              & Não \\
-    $D_1$ & $\{q_2\}$                              & Não \\
-    $D_2$ & $\{q_6\}$                              & Não \\
-    $D_3$ & $\{q_6,q_7,q_8,q_{10}\}$              & Não \\
-    $D_4$ & $\{q_6,q_7,q_8,q_{10},q_{11}\}$       & Não \\
-    $D_5$ & $\{q_6,q_7,q_8,q_9,q_{10}\}$          & Não \\
-    $D_6$ & $\{q_6,q_7,q_8,q_{10},q_{11},q_{12}\}$& \textbf{Sim} \\
-    $D_7$ & $\{q_6,q_7,q_8,q_{10},q_{12}\}$       & \textbf{Sim} \\
+    $D_0$ & $\{q_0\}$                                   & Não \\
+    $D_1$ & $\{q_2\}$                                   & Não \\
+    $D_2$ & $\{q_6\}$                                   & Não \\
+    $D_3$ & $\{q_6,q_7,q_8,q_{10}\}$                   & Não \\
+    $D_4$ & $\{q_6,q_7,q_8,q_{10},q_{11}\}$            & Não \\
+    $D_5$ & $\{q_6,q_7,q_8,q_9,q_{10}\}$               & Não \\
+    $D_6$ & $\{q_6,q_7,q_8,q_{10},q_{11},q_{12}\}$     & \textbf{Sim} \\
+    $D_7$ & $\{q_6,q_7,q_8,q_{10},q_{12}\}$            & \textbf{Sim} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \caption{Tabela de transições do DFA mínimo de \texttt{nfae\_complex}.
-           O símbolo ``$\emptyset$'' indica transição para o estado morto
-           (eliminado pela minimização).}
-  \label{tab:complex-trans}
+  \caption{Tabela de transições do DFA mínimo de \texttt{nfae\_10}. O
+    símbolo ``$\emptyset$'' indica transição para o estado morto (eliminado
+    pela minimização).}
+  \label{tab:nfae10-trans}
   \renewcommand{\arraystretch}{1.2}
   \begin{tabular}{ccccc}
     \toprule
@@ -388,6 +469,71 @@ os estados renomeados ($D_0$--$D_7$) e os subconjuntos de estados do NFA.
   \end{tabular}
 \end{table}
 
+A Figura~\ref{fig:nfae10-dfa} apresenta o diagrama do DFA mínimo. Os estados
+$D_0$, $D_1$ e $D_2$ formam a cadeia de prefixo ($ab$ ou $cb$); o núcleo
+$\{D_3,\ldots,D_7\}$ reconhece o corpo e os sufixos da linguagem, com $D_6$
+e $D_7$ como estados de aceitação.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      >=Stealth, auto, semithick,
+      every state/.style={draw, circle, minimum size=0.95cm, inner sep=1pt, font=\small},
+      every node/.style={font=\footnotesize}
+    ]
+    % Linha superior: cadeia de prefixo
+    \node[state, initial, initial text=]   (D0) at (0,0)     {$D_0$};
+    \node[state]                           (D1) at (2.2,0)   {$D_1$};
+    \node[state]                           (D2) at (4.4,0)   {$D_2$};
+    \node[state]                           (D3) at (7.4,0)   {$D_3$};
+    \node[state]                           (D5) at (11.0,0)  {$D_5$};
+
+    % Linha inferior: ciclo principal
+    \node[state]            (D4) at (7.4,-3.2)  {$D_4$};
+    \node[state, accepting] (D7) at (11.0,-3.2) {$D_7$};
+    \node[state, accepting] (D6) at (4.4,-3.2)  {$D_6$};
+
+    \path[->]
+      % --- Cadeia de prefixo ---
+      (D0) edge node {$a,c$} (D1)
+      (D1) edge node {$b$}   (D2)
+      (D2) edge [loop above] node {$a,b$} ()
+      (D2) edge node {$c$}   (D3)
+
+      % --- Self-loops ---
+      (D3) edge [loop above] node {$a$} ()
+      (D5) edge [loop above] node {$b$} ()
+      (D6) edge [loop below] node {$c$} ()
+
+      % --- Linha superior D3 -> D5 ---
+      (D3) edge node {$b$} (D5)
+
+      % --- Par vertical D3 <-> D4 (curvas paralelas) ---
+      (D3) edge [bend right=15] node[left]  {$c$} (D4)
+      (D4) edge [bend right=15] node[right] {$a$} (D3)
+
+      % --- Par vertical D5 <-> D7 (curvas paralelas) ---
+      (D5) edge [bend right=15] node[left]  {$a$} (D7)
+      (D7) edge [bend right=15] node[right] {$b$} (D5)
+
+      % --- Linha inferior D7 -> D4 -> D6 ---
+      (D7) edge node[above] {$c$} (D4)
+      (D4) edge node[above] {$c$} (D6)
+
+      % --- Diagonais internas do quadrado D3-D5-D7-D4 ---
+      (D4) edge [bend right=18] node[pos=0.5, below, sloped] {$b$} (D5)
+      (D7) edge [bend right=18] node[pos=0.5, above, sloped] {$a$} (D3)
+
+      % --- Saídas de D6 ---
+      (D6) edge [bend left=28] node[pos=0.5, above left] {$a$} (D3)
+      (D6) edge [bend left=65, looseness=1.25] node[above, pos=0.5] {$b$} (D5);
+  \end{tikzpicture}
+  \caption{DFA mínimo de \texttt{nfae\_10} (8 estados, $\Sigma = \{a,b,c\}$).
+    Estados finais: $D_6$ e $D_7$.
+    Transições completas na Tabela~\ref{tab:nfae10-trans}.}
+  \label{fig:nfae10-dfa}
+\end{figure}
+
 % =================================================================
 \chapter{Parte 2 --- Expressões Regulares}
 % =================================================================
@@ -398,26 +544,23 @@ O módulo \texttt{Regex.hs} implementa a conversão de uma expressão regular
 para DFA mínimo em quatro estágios:
 
 \begin{enumerate}
-  \item \textbf{Análise sintática (\textit{parsing}):} a expressão regular é
-    lida como string e convertida para uma árvore sintática abstrata (AST)
-    usando combinadores de \textit{parsing} em Haskell.
-  \item \textbf{Construção de Thompson:} a AST é percorrida
-    recursivamente, gerando um NFA$\varepsilon$ por indução estrutural — concatenação,
-    alternância ($|$), Kleene ($*$/$+$) e opção ($?$) possuem construções
-    padrão.
-  \item \textbf{Eliminação de $\varepsilon$ e construção de subconjuntos:}
-    o NFA$\varepsilon$ gerado é passado ao mesmo pipeline de \texttt{Main.hs}.
+  \item \textbf{Análise sintática:} a expressão regular é convertida para
+    uma árvore sintática abstrata (AST) por combinadores descendentes
+    recursivos.
+  \item \textbf{Construção de Thompson:} a AST é percorrida recursivamente,
+    gerando um NFA$\varepsilon$ por indução estrutural.
+  \item \textbf{Eliminação de $\varepsilon$ e subconjuntos:} o
+    NFA$\varepsilon$ é processado pelo mesmo pipeline de \texttt{Main.hs}.
   \item \textbf{Minimização de Hopcroft:} o DFA resultante é minimizado.
 \end{enumerate}
 
-Para cada expressão regular a seguir, apresenta-se a expressão, a linguagem
-reconhecida e o DFA mínimo obtido, com renomeação dos estados por clareza.
+Para cada expressão regular são apresentados a linguagem reconhecida e o
+DFA mínimo obtido, com renomeação dos estados por clareza.
 
 % -----------------------------------------------------------------
 \section{Expressão 1 --- \rx{ab*}}
 
-A expressão \rx{ab*} denota $L = \{ab^n \mid n \geq 0\} = a \cdot b^*$:
-uma cadeia começa com exatamente um $a$, seguido de zero ou mais $b$s.
+A expressão \rx{ab*} denota $L = a \cdot b^* = \{ab^n \mid n \geq 0\}$.
 O DFA mínimo possui 2~estados.
 
 \begin{figure}[H]
@@ -430,15 +573,15 @@ O DFA mínimo possui 2~estados.
       (S1) edge [loop above] node {$b$} ();
   \end{tikzpicture}
   \caption{DFA mínimo para \rx{ab*}: $S_0 = \{q_0\}$,
-           $S_1 = \{q_3,q_4,q_5\}$.}
+    $S_1 = \{q_3,q_4,q_5\}$.}
   \label{fig:dfa-regex1}
 \end{figure}
 
 % -----------------------------------------------------------------
 \section{Expressão 2 --- \rx{a*b+}}
 
-A expressão \rx{a*b+} denota $L = a^* \cdot b^+$: zero ou mais $a$s
-seguidos de ao menos um $b$. O DFA mínimo possui 2~estados.
+A expressão \rx{a*b+} denota $L = a^* \cdot b^+$. O DFA mínimo possui
+2~estados.
 
 \begin{figure}[H]
   \centering
@@ -451,16 +594,15 @@ seguidos de ao menos um $b$. O DFA mínimo possui 2~estados.
       (S1) edge [loop above] node {$b$} ();
   \end{tikzpicture}
   \caption{DFA mínimo para \rx{a*b+}: $S_0 = \{q_0\}$,
-           $S_1 = \{q_7,q_8,q_9\}$.}
+    $S_1 = \{q_7,q_8,q_9\}$.}
   \label{fig:dfa-regex2}
 \end{figure}
 
 % -----------------------------------------------------------------
 \section{Expressão 3 --- \rx{(a|b)*abb}}
 
-A expressão \rx{(a|b)*abb} denota $L = (a|b)^* \cdot abb$: todas as cadeias
-sobre $\{a,b\}$ que terminam com o sufixo $abb$. Este é o exemplo clássico
-de 4~estados que ilustra o DFA da construção de subconjuntos.
+A expressão \rx{(a|b)*abb} denota $L = (a|b)^* \cdot abb$ — cadeias
+sobre $\{a,b\}$ que terminam com $abb$. O DFA mínimo possui 4~estados.
 
 \begin{figure}[H]
   \centering
@@ -479,20 +621,20 @@ de 4~estados que ilustra o DFA da construção de subconjuntos.
       (S3) edge [bend right=40] node [below] {$b$} (S0)
       (S3) edge [bend left=50] node [above] {$a$} (S1);
   \end{tikzpicture}
-  \caption{DFA mínimo para \rx{(a|b)*abb}.
-    $S_0=\{q_0\}$; $S_1=\{q_1,q_2,q_3,q_4,q_5,q_6,q_8,q_9,q_{10}\}$;
-    $S_2=\{q_1,q_2,q_3,q_4,q_6,q_7,q_8,q_{11},q_{12}\}$;
-    $S_3=\{q_1,q_2,q_3,q_4,q_6,q_7,q_8,q_{13}\}^*$.}
+  \caption[DFA mínimo para \rx{(a|b)*abb}.]{%
+    \raggedright DFA mínimo para \rx{(a|b)*abb}.
+    $S_0{=}\{q_0\}$;
+    $S_1{=}\{q_1,\ldots,q_6,q_8,q_9,q_{10}\}$;
+    $S_2{=}\{q_1,\ldots,q_4,q_6,q_7,q_8,q_{11},q_{12}\}$;
+    $S_3{=}\{q_1,\ldots,q_4,q_6,q_7,q_8,q_{13}\}^*$.}
   \label{fig:dfa-regex3}
 \end{figure}
 
 % -----------------------------------------------------------------
 \section{Expressão 4 --- \rx{a?}}
 
-A expressão \rx{a?} denota $L = \{\varepsilon, a\}$: a cadeia vazia ou
-exatamente um $a$. Como o alfabeto de entrada é $\{a\}$, o DFA mínimo
-possui 2~estados, ambos finais (a cadeia vazia é aceita pelo estado
-inicial).
+A expressão \rx{a?} denota $L = \{\varepsilon, a\}$. O DFA mínimo possui
+2~estados, ambos finais (a cadeia vazia é aceita no estado inicial).
 
 \begin{figure}[H]
   \centering
@@ -502,9 +644,7 @@ inicial).
     \path
       (S0) edge node {$a$} (S1);
   \end{tikzpicture}
-  \caption{DFA mínimo para \rx{a?}: $S_0 = \{q_0\}$, $S_1 = \{q_1,q_3\}$.
-           Ambos os estados são finais; $S_1$ não possui transições saindo
-           pois não há símbolo $a$ disponível após consumir um $a$.}
+  \caption{DFA mínimo para \rx{a?}: $S_0 = \{q_0\}$, $S_1 = \{q_1,q_3\}$.}
   \label{fig:dfa-regex4}
 \end{figure}
 
@@ -512,9 +652,9 @@ inicial).
 \section{Expressão 5 --- \rx{(a|b)*c(a+b|ba?)*}}
 
 A expressão \rx{(a|b)*c(a+b|ba?)*} denota cadeias sobre $\{a,b,c\}$
-compostas de: (i) qualquer prefixo em $(a|b)^*$; (ii) exatamente um $c$;
-e (iii) um sufixo arbitrário em $(a^+b \mid ba^?)^*$.
-O DFA mínimo possui 4~estados (Tabela~\ref{tab:regex5-trans}).
+compostas de: (i)~qualquer prefixo em $(a|b)^*$; (ii)~exatamente um $c$;
+e (iii)~sufixo em $(a^+b \mid ba^?)^*$. O DFA mínimo possui 4~estados
+(Tabela~\ref{tab:regex5-trans}).
 
 \begin{table}[H]
   \centering
@@ -541,20 +681,17 @@ O DFA mínimo possui 4~estados (Tabela~\ref{tab:regex5-trans}).
     \node[state, accepting]  (R2) [below of=R1] {$R_2$};
     \node[state]             (R3) [right of=R1] {$R_3$};
     \path
-      (R0) edge [loop above] node {$a,b$} ()
-      (R0) edge node {$c$} (R1)
-      (R1) edge [bend left=15] node [above] {$a$} (R3)
-      (R1) edge [bend left=15] node [right] {$b$} (R2)
-      (R2) edge [bend left=15] node [right] {$a$} (R1)
-      (R2) edge [loop right]   node {$b$} ()
-      (R3) edge [loop above]   node {$a$} ()
-      (R3) edge [bend left=15] node [below] {$b$} (R1);
+      (R0) edge [loop above] node {$a,b$}           ()
+      (R0) edge node {$c$}                          (R1)
+      (R1) edge [bend left=15] node [above] {$a$}   (R3)
+      (R1) edge [bend left=15] node [right] {$b$}   (R2)
+      (R2) edge [bend left=15] node [right] {$a$}   (R1)
+      (R2) edge [loop right]   node {$b$}            ()
+      (R3) edge [loop above]   node {$a$}            ()
+      (R3) edge [bend left=15] node [below] {$b$}   (R1);
   \end{tikzpicture}
   \caption{DFA mínimo para \rx{(a|b)*c(a+b|ba?)*}.
-    $R_0{=}\{q_0\}$;
-    $R_1{=}\{q_9,q_{10},q_{11},q_{12},q_{14},q_{22}\}^*$;
-    $R_2{=}\{q_{11},q_{12},q_{13},q_{14},q_{22},q_{23},\ldots,q_{29}\}^*$;
-    $R_3{=}\{q_{17},q_{18},q_{19},q_{20}\}$.}
+    $R_0{=}\{q_0\}$; $R_1$, $R_2$ finais; $R_3$ não-final.}
   \label{fig:dfa-regex5}
 \end{figure}
 
@@ -566,44 +703,38 @@ O DFA mínimo possui 4~estados (Tabela~\ref{tab:regex5-trans}).
 
 \textit{Regex Crossword} é uma plataforma de quebra-cabeças interativos
 disponível em \url{https://regexcrossword.com}, na qual o objetivo é
-preencher uma grade bidimensional com caracteres de modo que cada linha
-e cada coluna satisfaça simultaneamente a expressão regular especificada
-como restrição. A atividade exercita, de maneira lúdica, a capacidade
-do aluno de construir e interpretar expressões regulares --- habilidade
-central na disciplina de Teoria da Computação.
+preencher uma grade com caracteres de modo que cada linha e coluna
+satisfaça simultaneamente a expressão regular especificada. A atividade
+exercita a capacidade de construir e interpretar expressões regulares,
+habilidade central na disciplina de Teoria da Computação.
 
 Este capítulo apresenta as soluções para os cinco desafios da seção
-\textit{Beginner} e, em seguida, descreve dois quebra-cabeças originais
-criados e publicados pelo aluno na seção \textit{Player Puzzles}.
+\textit{Beginner} e dois quebra-cabeças originais publicados pelo aluno
+na seção \textit{Player Puzzles}.
 
 % -----------------------------------------------------------------
-\section{Desafios da Seção \textit{Beginner}}
-% -----------------------------------------------------------------
+\section{Desafios da Seção Beginner}
 
-A seção \textit{Beginner} compreende cinco desafios introdutórios, cada
-um com grade 2×2. A Figura~\ref{fig:desafios-concluidos} apresenta a
-visão geral dos cinco desafios concluídos.
+A seção \textit{Beginner} compreende cinco desafios introdutórios de
+grade 2×2. A Figura~\ref{fig:desafios-concluidos} apresenta os cinco
+concluídos.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.9\textwidth]{img/regexcrossword_Desafios_Concluidos.png}
-  \caption{Visão geral dos cinco desafios da seção \textit{Beginner}
-    concluídos: Beatles, Naughty, Ghost, Symbolism e Airstrip One.}
+  \caption{Cinco desafios da seção \textit{Beginner} concluídos:
+    Beatles, Naughty, Ghost, Symbolism e Airstrip One.}
   \label{fig:desafios-concluidos}
 \end{figure}
 
-% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-\subsection{Desafio 1 --- \textit{Beatles}}
+\subsection{Desafio 1 --- Beatles}
 
-O desafio \textit{Beatles} apresenta restrições baseadas em alternância
-e classes de caracteres. A solução é formada pelas letras
-\celula{H}, \celula{E}, \celula{L}, \celula{P} --- compondo a palavra
-\textit{HELP}, título do álbum homônimo dos Beatles de 1965.
+Solução: \celula{H}, \celula{E}, \celula{L}, \celula{P} (\textit{HELP}).
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.38\textwidth]{img/Desafio_1.png}
-  \caption{Desafio \textit{Beatles} --- solução: HELP.}
+  \caption{Desafio \textit{Beatles} — solução: HELP.}
   \label{fig:desafio1}
 \end{figure}
 
@@ -621,18 +752,16 @@ e classes de caracteres. A solução é formada pelas letras
 \end{tabular}
 \end{center}
 
-% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-\subsection{Desafio 2 --- \textit{Naughty}}
+\subsection{Desafio 2 --- Naughty}
 
-O desafio \textit{Naughty} introduz o operador de referência reversa
-(\rx{\textbackslash{}1}), que exige que determinada subcadeia coincida
-com o grupo de captura anterior. A solução é
-\celula{B}, \celula{O}, \celula{B}, \celula{E}.
+Solução: \celula{B}, \celula{O}, \celula{B}, \celula{E}.
+O operador \rx{\textbackslash{}1} exige que a subcadeia repita o grupo
+de captura anterior.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.38\textwidth]{img/Desafio_2.png}
-  \caption{Desafio \textit{Naughty} --- solução: BOBE.}
+  \caption{Desafio \textit{Naughty} — solução: BOBE.}
   \label{fig:desafio2}
 \end{figure}
 
@@ -650,26 +779,20 @@ com o grupo de captura anterior. A solução é
 \end{tabular}
 \end{center}
 
-Verificação das restrições:
-\begin{itemize}
-  \item Linha 1 (\textit{BO}): \rx{.*M?O.*} --- \texttt{B} casa \rx{.*},
-    \rx{M?} é omitido (zero ocorrências), \texttt{O} casa literalmente \checkmark
-  \item Linha 2 (\textit{BE}): \rx{(AN|FE|BE)} --- terceira alternativa \checkmark
-  \item Coluna 1 (\textit{BB}): \rx{(A|B|C)\textbackslash{}1} --- grupo captura
-    \texttt{B}, referência reversa exige novo \texttt{B} \checkmark
-  \item Coluna 2 (\textit{OE}): \rx{(AB|OE|SK)} --- segunda alternativa \checkmark
-\end{itemize}
+Verificação: Coluna~1 (\textit{BB}): grupo captura \texttt{B}, referência
+reversa exige novo \texttt{B}~\checkmark. Coluna~2 (\textit{OE}):
+alternativa \rx{OE}~\checkmark. Linha~1 (\textit{BO}): \rx{.*M?O.*} com
+\rx{M?} omitido~\checkmark. Linha~2 (\textit{BE}): \rx{(AN|FE|BE)}
+terceira alternativa~\checkmark.
 
-% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-\subsection{Desafio 3 --- \textit{Ghost}}
+\subsection{Desafio 3 --- Ghost}
 
-No desafio \textit{Ghost}, todas as quatro células recebem o caractere
-\celula{O}, compondo a solução \textit{OOOO}.
+Solução: \celula{O}, \celula{O}, \celula{O}, \celula{O} (\textit{OOOO}).
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.38\textwidth]{img/Desafio_3.png}
-  \caption{Desafio \textit{Ghost} --- solução: OOOO.}
+  \caption{Desafio \textit{Ghost} — solução: OOOO.}
   \label{fig:desafio3}
 \end{figure}
 
@@ -687,63 +810,28 @@ No desafio \textit{Ghost}, todas as quatro células recebem o caractere
 \end{tabular}
 \end{center}
 
-Verificação:
-\begin{itemize}
-  \item Linha 1 (\textit{OO}): \rx{(.)+\textbackslash{}1} --- \rx{(.)} captura
-    \texttt{O}, quantificador \rx{+} permite iteração, referência reversa
-    exige novo \texttt{O} \checkmark
-  \item Linha 2 (\textit{OO}): \rx{[\textasciicircum{}ABRC]+} ---
-    \texttt{O} $\notin$ \{A, B, R, C\} \checkmark
-  \item Coluna 1 (\textit{OO}): \rx{[COBRA]+} ---
-    \texttt{O} $\in$ \{C, O, B, R, A\} \checkmark
-  \item Coluna 2 (\textit{OO}): \rx{(AB|O|OR)+} --- alternativa \rx{O}
-    aplicada duas vezes \checkmark
-\end{itemize}
+\subsection{Desafio 4 --- Symbolism}
 
-% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-\subsection{Desafio 4 --- \textit{Symbolism}}
-
-O desafio \textit{Symbolism} utiliza exclusivamente caracteres simbólicos
-do alfabeto \{\rx{*}, \rx{+}, \rx{,}, \rx{/}\}. A solução é
-\celula{*}, \celula{*}, \celula{/}, \celula{/}.
+Solução: \celula{*}, \celula{*}, \celula{/}, \celula{/}.
+Dentro de classes \rx{[\ldots{}]}, \rx{*} e \rx{+} são tratados como
+literais.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.38\textwidth]{img/Desafio_4.png}
-  \caption{Desafio \textit{Symbolism} --- solução: \texttt{**/{}/ }.}
+  \caption{Desafio \textit{Symbolism} — solução: \texttt{**/{}/ }.}
   \label{fig:desafio4}
 \end{figure}
 
-\begin{center}
-\renewcommand{\arraystretch}{1.4}
-\begin{tabular}{|c|c|}
-  \hline
-  \celula{*} & \celula{*} \\
-  \hline
-  \celula{/} & \celula{/} \\
-  \hline
-\end{tabular}
-\end{center}
+\subsection{Desafio 5 --- Airstrip One}
 
-O desafio explora o fato de que, dentro de classes de caracteres
-(\rx{[\ldots{}]}), quantificadores como \rx{*} e \rx{+} perdem seu
-significado especial e são interpretados como literais. A restrição de
-linha 2, \rx{/+}, exige um ou mais \rx{/} --- a sequência \textit{//}
-satisfaz a expressão \checkmark.
-
-% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-\subsection{Desafio 5 --- \textit{Airstrip One}}
-
-O desafio \textit{Airstrip One} utiliza dígitos do alfabeto
-\{0, 1, 4, 6, 8, 9\}. A solução é
-\celula{1}, \celula{9}, \celula{8}, \celula{4} --- compondo o número
-\textit{1984}, referência ao romance distópico de George Orwell
-(\textit{Airstrip One} é o nome dado à Inglaterra na obra).
+Solução: \celula{1}, \celula{9}, \celula{8}, \celula{4} (\textit{1984},
+referência ao romance de George Orwell).
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.38\textwidth]{img/Desafio_5.png}
-  \caption{Desafio \textit{Airstrip One} --- solução: 1984.}
+  \caption{Desafio \textit{Airstrip One} — solução: 1984.}
   \label{fig:desafio5}
 \end{figure}
 
@@ -754,23 +842,18 @@ O desafio \textit{Airstrip One} utiliza dígitos do alfabeto
   \multicolumn{1}{c}{\rx{\textbackslash{}d[2480]}} &
   \multicolumn{1}{c}{\rx{56|94|73}} \\
   \cline{2-3}
-  \rx{18|19|20}               & \celula{1} & \celula{9} \\
+  \rx{18|19|20}                & \celula{1} & \celula{9} \\
   \cline{2-3}
   \rx{[6789]\textbackslash{}d} & \celula{8} & \celula{4} \\
   \cline{2-3}
 \end{tabular}
 \end{center}
 
-Verificação:
-\begin{itemize}
-  \item Linha 1 (\textit{19}): \rx{18|19|20} --- segunda alternativa \checkmark
-  \item Linha 2 (\textit{84}): \rx{[6789]\textbackslash{}d} ---
-    \texttt{8} $\in$ \{6,7,8,9\}, \texttt{4} $\in \Sigma_{\text{dígitos}}$ \checkmark
-  \item Coluna 1 (\textit{18}): \rx{\textbackslash{}d[2480]} ---
-    \texttt{1} $\in \Sigma_{\text{dígitos}}$,
-    \texttt{8} $\in$ \{2,4,8,0\} \checkmark
-  \item Coluna 2 (\textit{94}): \rx{56|94|73} --- segunda alternativa \checkmark
-\end{itemize}
+Verificação: Linha~1 (\textit{19}): \rx{18|19|20}~\checkmark.
+Linha~2 (\textit{84}): $8 \in \{6,7,8,9\}$, $4 \in \Sigma_{\text{dígitos}}$~\checkmark.
+Coluna~1 (\textit{18}): $1 \in \Sigma_{\text{dígitos}}$, $8 \in \{2,4,8,0\}$~\checkmark.
+Coluna~2 (\textit{94}): alternativa \rx{94}~\checkmark.
+
 
 % -----------------------------------------------------------------
 \section{Quebra-cabeças Criados pelo Aluno}

@@ -1,237 +1,225 @@
 -- Laboratório 1 — Teoria da Computação (Mestrado)
 -- Parte 2: Geração de NFA-ε a partir de Expressão Regular
 --
--- Converte uma regex em NFA-ε usando a Construção de Thompson,
--- e salva o resultado em YAML compatível com o formato de Main.hs.
+-- Converte uma regex em NFA-ε pela Construção de Thompson,
+-- e serializa o resultado em YAML compatível com Main.hs.
 --
 -- Uso  : cabal run lab1-part2 -- "<regex>" output.yaml
 -- Fluxo: regex (string) → AST → NFA-ε (Thompson) → YAML
 
--- nub: remove duplicatas; sort: ordena; intercalate: junta com separador
 import Data.List (nub, sort, intercalate)
--- Leitura dos argumentos da linha de comando
 import System.Environment (getArgs)
 
--- =============================
--- AST da Expressão Regular
--- Representa a árvore sintática de uma regex
--- =============================
+-- =====================================================================
+-- Árvore Sintática Abstrata da Expressão Regular
+-- Representa as seis operações da álgebra regular: concatenação,
+-- união, fecho de Kleene (r*), fecho positivo (r+) e opcional (r?).
+-- RPlus e ROpt são açúcar sintático: expandidos durante a construção
+-- de Thompson para evitar casos especiais no algoritmo.
+-- =====================================================================
 
 data Regex
-  = RChar   Char         -- literal: um único caractere (ex: 'a')
-  | REpsilon             -- palavra vazia (epsilon)
-  | RConcat Regex Regex  -- concatenação: r1 seguido de r2 (ex: ab)
-  | RUnion  Regex Regex  -- união/alternância: r1 ou r2 (ex: a|b)
-  | RStar   Regex        -- fecho de Kleene: 0 ou mais repetições (ex: a*)
-  | RPlus   Regex        -- uma ou mais repetições (ex: a+), equivale a r·r*
-  | ROpt    Regex        -- opcional: 0 ou 1 ocorrência (ex: a?), equivale a r|ε
+  = RChar   Char
+  | REpsilon
+  | RConcat Regex Regex
+  | RUnion  Regex Regex
+  | RStar   Regex
+  | RPlus   Regex
+  | ROpt    Regex
   deriving (Show, Eq)
 
--- =============================
--- Parser de Expressão Regular
--- Converte a string da regex em uma AST (Regex)
+-- =====================================================================
+-- Parser de Expressão Regular (combinadores descendentes recursivos)
+-- Implementa a gramática com precedências explícitas:
 --
--- Gramática (precedência crescente, menor para maior):
---   expr   ::= term ('|' term)*          ← menor: união
---   term   ::= factor+                   ← médio: concatenação
---   factor ::= atom ('*'|'+'|'?')*       ← alto: sufixos
---   atom   ::= char | '(' expr ')' | ⊥  ← maior: átomos; ⊥ = erro p/ operadores fora de posição
--- =============================
+--   expr   ::= term ('|' term)*        -- menor precedência: união
+--   term   ::= factor+                 -- média: concatenação
+--   factor ::= atom ('*'|'+'|'?')*     -- alta: sufixos unários
+--   atom   ::= char | '(' expr ')' | ⊥ -- maior: átomos e grupos
+--
+-- Cada nível é uma função separada que retorna o resultado consumido e
+-- o sufixo não consumido da entrada, seguindo o padrão parser-combinator.
+-- =====================================================================
 
--- Tipo de resultado do parser: ou erro ou (valor, resto da string não consumida)
+-- Resultado de um passo de parse: erro ou (AST parcial, resto da entrada).
 type ParseResult a = Either String (a, String)
 
--- Ponto de entrada: parseia a string inteira e exige que não sobre nada
+-- Ponto de entrada: exige consumo total da entrada para garantir que
+-- não haja lixo sintático após a expressão reconhecida.
 parseRegex :: String -> Either String Regex
 parseRegex input = case parseExpr input of
-  Right (r, [])   -> Right r                               -- sucesso: toda a string foi consumida
-  Right (_, rest) -> Left ("Entrada inesperada: " ++ rest) -- sobrou texto não reconhecido
-  Left err        -> Left err                              -- erro de sintaxe
+  Right (r, [])   -> Right r
+  Right (_, rest) -> Left ("Entrada inesperada: " ++ rest)
+  Left err        -> Left err
 
--- Parseia uma expressão completa (nível mais baixo de precedência: união)
 parseExpr :: String -> ParseResult Regex
 parseExpr input = do
-  (t1, rest1) <- parseTerm input     -- parseia o primeiro termo
-  parseUnionTail t1 rest1            -- verifica se há '|' para mais termos
+  (t1, rest1) <- parseTerm input
+  parseUnionTail t1 rest1
 
--- Continua lendo termos separados por '|', acumulando no nó RUnion
+-- Acumula termos de união com associatividade à esquerda.
 parseUnionTail :: Regex -> String -> ParseResult Regex
 parseUnionTail left ('|':rest) = do
-  (t2, rest2) <- parseTerm rest               -- parseia o próximo termo após '|'
-  parseUnionTail (RUnion left t2) rest2       -- acumula à esquerda (left-associative)
-parseUnionTail left rest = Right (left, rest) -- não há mais '|': retorna o que acumulou
+  (t2, rest2) <- parseTerm rest
+  parseUnionTail (RUnion left t2) rest2
+parseUnionTail left rest = Right (left, rest)
 
--- Parseia um termo (nível médio: concatenação de fatores)
 parseTerm :: String -> ParseResult Regex
 parseTerm input = do
-  (f1, rest1) <- parseFactor input   -- parseia o primeiro fator
-  parseConcatTail f1 rest1           -- concatena com os fatores seguintes
+  (f1, rest1) <- parseFactor input
+  parseConcatTail f1 rest1
 
--- Continua concatenando fatores enquanto houver caracteres que iniciam um átomo
+-- Encerra o termo quando encontra '|', ')' ou fim de entrada — todos
+-- delimitadores que sinalizam o término do nível de concatenação.
 parseConcatTail :: Regex -> String -> ParseResult Regex
-parseConcatTail left [] = Right (left, [])         -- fim da string: retorna o acumulado
+parseConcatTail left [] = Right (left, [])
 parseConcatTail left rest@(c:_)
-  | c `elem` ['|', ')'] = Right (left, rest)        -- '|' ou ')' encerra o termo
+  | c `elem` ['|', ')'] = Right (left, rest)
   | otherwise = do
-      (f2, rest2) <- parseFactor rest              -- parseia o próximo fator
-      parseConcatTail (RConcat left f2) rest2      -- acumula concatenação
+      (f2, rest2) <- parseFactor rest
+      parseConcatTail (RConcat left f2) rest2
 
--- Parseia um fator: um átomo seguido de zero ou mais sufixos (*, +, ?)
 parseFactor :: String -> ParseResult Regex
 parseFactor input = do
-  (a, rest) <- parseAtom input   -- parseia o átomo base
-  parseSuffix a rest             -- aplica sufixos se houver
+  (a, rest) <- parseAtom input
+  parseSuffix a rest
 
--- Aplica sufixos ao átomo; permite encadeamento (ex: a*? é ROpt(RStar(a)))
+-- Permite sufixos encadeados (ex.: a*? → ROpt(RStar a)).
 parseSuffix :: Regex -> String -> ParseResult Regex
-parseSuffix r ('*':rest) = parseSuffix (RStar r) rest  -- fecho de Kleene
-parseSuffix r ('+':rest) = parseSuffix (RPlus r) rest  -- uma ou mais repetições
-parseSuffix r ('?':rest) = parseSuffix (ROpt  r) rest  -- opcional
-parseSuffix r rest       = Right (r, rest)             -- nenhum sufixo: retorna como está
+parseSuffix r ('*':rest) = parseSuffix (RStar r) rest
+parseSuffix r ('+':rest) = parseSuffix (RPlus r) rest
+parseSuffix r ('?':rest) = parseSuffix (ROpt  r) rest
+parseSuffix r rest       = Right (r, rest)
 
--- Parseia um átomo: caractere literal ou subexpressão entre parênteses.
--- Operadores de maior precedência ('|', '*', '+', '?') em posição de átomo
--- indicam erro de sintaxe — o parser os rejeita explicitamente para garantir
--- robustez (ex: "*a", "|b", "a||b" produzem mensagens de erro claras).
+-- Operadores em posição de átomo ('*', '+', '?', '|') indicam erro de
+-- sintaxe. O parser os rejeita com mensagem diagnóstica explícita para
+-- cobrir casos como "*a", "a||b" e evitar falhas silenciosas.
 parseAtom :: String -> ParseResult Regex
 parseAtom ('(':rest) = do
-  (e, rest2) <- parseExpr rest          -- parseia a subexpressão interna
+  (e, rest2) <- parseExpr rest
   case rest2 of
-    (')':rest3) -> Right (e, rest3)     -- consome o ')' de fechamento
+    (')':rest3) -> Right (e, rest3)
     _           -> Left "Parêntese de fechamento esperado"
 parseAtom []       = Left "Fim inesperado da entrada"
 parseAtom ('|':_)  = Left "Operador '|' em posição inválida: falta termo à esquerda"
 parseAtom ('*':_)  = Left "Operador '*' em posição inválida: requer átomo precedente"
 parseAtom ('+':_)  = Left "Operador '+' em posição inválida: requer átomo precedente"
 parseAtom ('?':_)  = Left "Operador '?' em posição inválida: requer átomo precedente"
-parseAtom (c:rest) = Right (RChar c, rest)       -- caractere literal
+parseAtom (c:rest) = Right (RChar c, rest)
 
--- =============================
+-- =====================================================================
 -- Construção de Thompson (Regex → NFA-ε)
--- Cada sub-regex gera um fragmento de NFA com exatamente:
---   - um estado de entrada (fragStart)
---   - um estado de saída (fragEnd)
---   - uma lista de transições (fragTrans)
--- Os estados são identificados por inteiros crescentes.
--- =============================
+-- Cada sub-regex produz um fragmento com exatamente um estado de entrada
+-- e um estado de saída, identificados por inteiros crescentes alocados
+-- sequencialmente. Essa invariante de singleton (início, fim) garante a
+-- composição correta das operações: concatenação, união e fecho conectam
+-- fragmentos exclusivamente por ε-transições sobre esses dois pontos.
+-- =====================================================================
 
--- Fragmento de NFA produzido por Thompson
+-- Fragmento de NFA gerado por Thompson: três componentes extraídos da
+-- chamada recursiva e combinados na função de montagem principal.
 data NFAFrag = NFAFrag
-  { fragStart :: Int                   -- ID do estado de entrada do fragmento
-  , fragEnd   :: Int                   -- ID do estado de saída do fragmento
-  , fragTrans :: [(Int, String, Int)]  -- transições brutas: (origem, símbolo, destino)
+  { fragStart :: Int
+  , fragEnd   :: Int
+  , fragTrans :: [(Int, String, Int)]
   } deriving (Show)
 
--- Constrói recursivamente o NFA-ε a partir da AST da regex.
--- Recebe o próximo ID de estado livre (n) e retorna o fragmento + novo próximo ID.
+-- Constrói recursivamente o NFA-ε a partir da AST. O parâmetro n
+-- representa o próximo inteiro de estado livre; retornado atualizado.
 build :: Regex -> Int -> (NFAFrag, Int)
 
--- Literal 'c': dois estados, uma transição no símbolo [c]
---   n --[c]--> n+1
+-- n --[c]--> n+1
 build (RChar c) n =
   ( NFAFrag n (n+1) [(n, [c], n+1)]
   , n+2 )
 
--- Epsilon: dois estados, uma transição epsilon
---   n --[ε]--> n+1
+-- n --ε--> n+1
 build REpsilon n =
   ( NFAFrag n (n+1) [(n, "epsilon", n+1)]
   , n+2 )
 
--- Concatenação r1·r2: liga o fim de r1 ao início de r2 via epsilon
---   [r1.start --> r1.end] --ε--> [r2.start --> r2.end]
+-- [r1.start --> r1.end] --ε--> [r2.start --> r2.end]
 build (RConcat r1 r2) n =
-  let (f1, n1) = build r1 n          -- constrói r1 a partir do estado n
-      (f2, n2) = build r2 n1         -- constrói r2 a partir do próximo ID disponível
-      bridge   = (fragEnd f1, "epsilon", fragStart f2)  -- ponte epsilon entre r1 e r2
+  let (f1, n1) = build r1 n
+      (f2, n2) = build r2 n1
+      bridge   = (fragEnd f1, "epsilon", fragStart f2)
       trans    = fragTrans f1 ++ [bridge] ++ fragTrans f2
   in ( NFAFrag (fragStart f1) (fragEnd f2) trans
      , n2 )
 
--- União r1|r2: novo estado inicial com ε para cada sub-NFA;
--- cada sub-NFA tem ε para o novo estado final.
 --         ε→ [r1] →ε
 --  start →              → end
 --         ε→ [r2] →ε
 build (RUnion r1 r2) n =
-  let start    = n      -- novo estado inicial único
-      end      = n+1    -- novo estado final único
-      (f1, n1) = build r1 (n+2)   -- constrói r1 depois dos dois novos estados
-      (f2, n2) = build r2 n1      -- constrói r2 depois de r1
-      trans    = [ (start,      "epsilon", fragStart f1)  -- start → início de r1
-                 , (start,      "epsilon", fragStart f2)  -- start → início de r2
-                 , (fragEnd f1, "epsilon", end)           -- fim de r1 → end
-                 , (fragEnd f2, "epsilon", end)           -- fim de r2 → end
+  let start    = n
+      end      = n+1
+      (f1, n1) = build r1 (n+2)
+      (f2, n2) = build r2 n1
+      trans    = [ (start,      "epsilon", fragStart f1)
+                 , (start,      "epsilon", fragStart f2)
+                 , (fragEnd f1, "epsilon", end)
+                 , (fragEnd f2, "epsilon", end)
                  ] ++ fragTrans f1 ++ fragTrans f2
   in ( NFAFrag start end trans
      , n2 )
 
--- Fecho de Kleene r*: 0 ou mais repetições.
--- Novo início pode pular direto para o fim (0 reps) ou entrar em r.
--- O fim de r pode voltar ao início de r (mais reps) ou sair para o fim.
---  start →ε→ [r] →ε→ (loop back) e →ε→ end
+--  start →ε→ [r] →ε→ (loop) e →ε→ end
 --  start →ε→ end  (0 repetições)
 build (RStar r) n =
-  let start  = n      -- novo estado inicial
-      end    = n+1    -- novo estado final
-      (f, n1) = build r (n+2)   -- constrói o corpo de r após os dois novos estados
-      trans  = [ (start,     "epsilon", fragStart f)  -- start → r (entrar)
-               , (start,     "epsilon", end)          -- start → end (0 repetições)
-               , (fragEnd f, "epsilon", fragStart f)  -- fim r → início r (repetir)
-               , (fragEnd f, "epsilon", end)          -- fim r → end (sair)
-               ] ++ fragTrans f
+  let start   = n
+      end     = n+1
+      (f, n1) = build r (n+2)
+      trans   = [ (start,     "epsilon", fragStart f)
+                , (start,     "epsilon", end)
+                , (fragEnd f, "epsilon", fragStart f)
+                , (fragEnd f, "epsilon", end)
+                ] ++ fragTrans f
   in ( NFAFrag start end trans
      , n1 )
 
--- Uma ou mais repetições r+: equivale a r·r*
--- Obriga pelo menos uma passagem por r antes de entrar no fecho
+-- RPlus e ROpt são açúcar sintático expandido diretamente em termos
+-- das construções primitivas, evitando casos especiais no algoritmo.
 build (RPlus r) n = build (RConcat r (RStar r)) n
+build (ROpt  r) n = build (RUnion  r REpsilon)  n
 
--- Opcional r?: equivale a r|ε (r ou a palavra vazia)
-build (ROpt r) n = build (RUnion r REpsilon) n
-
--- =============================
+-- =====================================================================
 -- Tipos Automaton (espelho de Main.hs)
--- Redefinidos aqui para manter este arquivo independente
--- =============================
+-- Redefinidos aqui para manter este módulo independente de Main.hs,
+-- permitindo compilação e execução isolada da Parte 2.
+-- =====================================================================
 
--- Alias: estado e símbolo são strings
 type State  = String
 type Symbol = String
 
--- Tipos de autômato suportados
 data AutomatonType = DFA | NFA | NFAE deriving (Show, Eq)
 
--- Uma transição: de um estado, lendo um símbolo, vai para uma lista de estados
 data Transition = Transition
-  { tranFrom   :: State    -- estado de origem
-  , tranSymbol :: Symbol   -- símbolo consumido
-  , tranTo     :: [State]  -- estados de destino (lista suporta NFA/NFAE)
+  { tranFrom   :: State
+  , tranSymbol :: Symbol
+  , tranTo     :: [State]
   } deriving (Show, Eq)
 
--- Autômato completo
 data Automaton = Automaton
-  { autoType     :: AutomatonType  -- tipo: DFA, NFA ou NFAE
-  , alphabet     :: [Symbol]       -- lista de símbolos do alfabeto (sem epsilon)
-  , states       :: [State]        -- todos os estados
-  , initialState :: State          -- estado inicial
-  , finalStates  :: [State]        -- estados finais/aceitadores
-  , transitions  :: [Transition]   -- todas as transições
+  { autoType     :: AutomatonType
+  , alphabet     :: [Symbol]
+  , states       :: [State]
+  , initialState :: State
+  , finalStates  :: [State]
+  , transitions  :: [Transition]
   } deriving (Show, Eq)
 
--- =============================
+-- =====================================================================
 -- Serializador YAML customizado
--- Produz o mesmo formato de Main.hs: arrays inline, chaves na ordem
--- canônica e aspas duplas em todos os valores de string.
--- =============================
+-- Produz o mesmo formato de Main.hs: arrays inline, ordem canônica
+-- de campos e aspas duplas em todos os valores de string.
+-- =====================================================================
 
--- Converte o tipo do autômato para a string YAML correspondente
 autoTypeToStr :: AutomatonType -> String
 autoTypeToStr DFA  = "dfa"
 autoTypeToStr NFA  = "nfa"
 autoTypeToStr NFAE = "nfae"
 
--- Envolve uma string em aspas duplas, escapando '"' e '\' internos
+-- Envolve uma string em aspas duplas, escapando '"' e '\' internos.
 yamlQuote :: String -> String
 yamlQuote s = "\"" ++ concatMap escape s ++ "\""
   where
@@ -239,19 +227,18 @@ yamlQuote s = "\"" ++ concatMap escape s ++ "\""
     escape '\\' = "\\\\"
     escape c    = [c]
 
--- Produz um array YAML no estilo inline: ["a", "b", "c"]
+-- Produz um array YAML inline: ["a", "b", "c"].
 yamlInlineList :: [String] -> String
 yamlInlineList xs = "[" ++ intercalate ", " (map yamlQuote xs) ++ "]"
 
--- Serializa uma transição como bloco indentado de 2 espaços
 transitionToYaml :: Transition -> String
 transitionToYaml t =
   "  - from: "   ++ yamlQuote (tranFrom   t) ++ "\n" ++
   "    symbol: " ++ yamlQuote (tranSymbol t) ++ "\n" ++
   "    to: "     ++ yamlInlineList (tranTo t) ++ "\n"
 
--- Serializa o Automaton completo na ordem canônica de Main.hs:
--- type → alphabet → states → initial_state → final_states → transitions
+-- Serializa um Automaton na ordem canônica de campos:
+-- type → alphabet → states → initial_state → final_states → transitions.
 formatAutomaton :: Automaton -> String
 formatAutomaton a =
   "type: "          ++ autoTypeToStr (autoType a)     ++ "\n" ++
@@ -261,82 +248,76 @@ formatAutomaton a =
   "final_states: "  ++ yamlInlineList (finalStates a) ++ "\n" ++
   "transitions:\n"  ++ concatMap transitionToYaml (transitions a)
 
--- =============================
--- Funções auxiliares de conversão
--- =============================
+-- =====================================================================
+-- Conversão NFAFrag → Automaton
+-- =====================================================================
 
--- Converte um ID inteiro de estado para o nome canônico "qN"
 stateName :: Int -> State
 stateName n = "q" ++ show n
 
--- Percorre a AST e coleta todos os símbolos literais usados (= alfabeto da regex)
+-- Percorre a AST coletando todos os símbolos literais (= Σ da linguagem).
+-- Epsilon não é elemento do alfabeto e é excluído sistematicamente.
 collectAlphabet :: Regex -> [Symbol]
-collectAlphabet (RChar c)       = [[c]]                                          -- único símbolo
-collectAlphabet REpsilon        = []                                             -- epsilon não entra no alfabeto
-collectAlphabet (RConcat r1 r2) = nub (collectAlphabet r1 ++ collectAlphabet r2) -- união dos dois
-collectAlphabet (RUnion  r1 r2) = nub (collectAlphabet r1 ++ collectAlphabet r2) -- idem
-collectAlphabet (RStar r)       = collectAlphabet r                              -- delega para o corpo
-collectAlphabet (RPlus r)       = collectAlphabet r                              -- idem
-collectAlphabet (ROpt  r)       = collectAlphabet r                              -- idem
+collectAlphabet (RChar c)       = [[c]]
+collectAlphabet REpsilon        = []
+collectAlphabet (RConcat r1 r2) = nub (collectAlphabet r1 ++ collectAlphabet r2)
+collectAlphabet (RUnion  r1 r2) = nub (collectAlphabet r1 ++ collectAlphabet r2)
+collectAlphabet (RStar r)       = collectAlphabet r
+collectAlphabet (RPlus r)       = collectAlphabet r
+collectAlphabet (ROpt  r)       = collectAlphabet r
 
--- Agrupa transições brutas (Int, String, Int) em Transitions com to :: [State].
--- Transições com mesmo (from, symbol) são fundidas numa única Transition com
--- todos os destinos numa lista — necessário para ε-transições da União.
+-- Agrupa as transições brutas (Int, String, Int) em Transitions com
+-- to :: [State]. Pares (from, symbol) com múltiplos destinos — gerados
+-- pelas ε-transições de RUnion — são fundidos em uma única Transition.
 groupTransitions :: [(Int, String, Int)] -> [Transition]
 groupTransitions trans =
   [ Transition (stateName f) sym dests
-  | (f, sym) <- keys                                                        -- para cada par único (origem, símbolo)
-  , let dests = nub [stateName t | (f', sym', t) <- trans, f' == f, sym' == sym]  -- coleta todos os destinos
+  | (f, sym) <- keys
+  , let dests = nub [stateName t | (f', sym', t) <- trans, f' == f, sym' == sym]
   ]
   where
-    keys = nub [(f, sym) | (f, sym, _) <- trans]  -- todos os pares (origem, símbolo) distintos
+    keys = nub [(f, sym) | (f, sym, _) <- trans]
 
--- Converte um NFAFrag (resultado de Thompson) para o tipo Automaton de Main.hs.
--- O resultado é sempre NFAE pois Thompson gera ε-transições.
+-- Converte um NFAFrag para o tipo Automaton compatível com Main.hs.
+-- Thompson garante exatamente um estado final por fragmento; essa
+-- invariante é preservada pela atribuição singleton de finalStates.
 fragToAutomaton :: NFAFrag -> Regex -> Automaton
 fragToAutomaton frag regex =
   Automaton
-    { autoType     = NFAE                                    -- Thompson sempre produz NFA-ε
-    , alphabet     = sort (collectAlphabet regex)            -- alfabeto ordenado, sem epsilon
-    , states       = map stateName allStateIds               -- nomes dos estados (qN)
-    , initialState = stateName (fragStart frag)              -- estado inicial do fragmento
-    , finalStates  = [stateName (fragEnd frag)]              -- Thompson tem exatamente 1 estado final
-    , transitions  = groupTransitions (fragTrans frag)       -- transições agrupadas por (from, symbol)
+    { autoType     = NFAE
+    , alphabet     = sort (collectAlphabet regex)
+    , states       = map stateName allStateIds
+    , initialState = stateName (fragStart frag)
+    , finalStates  = [stateName (fragEnd frag)]
+    , transitions  = groupTransitions (fragTrans frag)
     }
   where
-    -- Coleta todos os IDs de estado mencionados em qualquer transição (mais início e fim)
     allStateIds = sort . nub $
-      [fragStart frag, fragEnd frag]            ++   -- estados extremos do fragmento
-      [s | (s, _, _) <- fragTrans frag]         ++   -- origens das transições
-      [t | (_, _, t) <- fragTrans frag]              -- destinos das transições
+      [fragStart frag, fragEnd frag]     ++
+      [s | (s, _, _) <- fragTrans frag]  ++
+      [t | (_, _, t) <- fragTrans frag]
 
--- =============================
--- MAIN
--- Lê a regex e o arquivo de saída da linha de comando,
--- parseia a regex, aplica Thompson, e salva o NFA-ε em YAML.
--- O YAML gerado é compatível com Main.hs para continuar a pipeline
--- (removeEpsilon → subsetConstruction → DFA).
--- =============================
+-- =====================================================================
+-- Ponto de entrada
+-- Pipeline: regex (string) → AST → NFAFrag (Thompson) → Automaton → YAML.
+-- O NFA-ε gerado é compatível com Main.hs para continuar a conversão
+-- removeEpsilon → subsetConstruction → minimizeDFA.
+-- =====================================================================
 
 main :: IO ()
 main = do
-  -- Lê os argumentos passados na linha de comando
   args <- getArgs
   case args of
-    -- Espera exatamente: a string da regex e o arquivo de saída YAML
     [regexStr, output] -> do
       case parseRegex regexStr of
-        -- Parse falhou: exibe a mensagem de erro de sintaxe
         Left err -> putStrLn ("Erro de sintaxe na regex: " ++ err)
-        -- Parse bem-sucedido: aplica Thompson e salva o resultado
         Right regex -> do
-          let (frag, totalStates) = build regex 0    -- constrói o NFA-ε a partir do estado q0
-          let automaton = fragToAutomaton frag regex  -- converte para o formato Automaton
-          writeFile output (formatAutomaton automaton) -- escreve o YAML no formato canônico
+          let (frag, totalStates) = build regex 0
+          let automaton = fragToAutomaton frag regex
+          writeFile output (formatAutomaton automaton)
           putStrLn ("✅ NFA-ε gerado em: " ++ output)
           putStrLn ("   Regex    : " ++ regexStr)
           putStrLn ("   Alfabeto : " ++ show (alphabet automaton))
           putStrLn ("   Estados  : " ++ show totalStates)
-          putStrLn ("   (use ./run.sh para converter o NFAε em DFA mínimo)")
-    -- Número errado de argumentos: exibe instrução de uso
+          putStrLn ("   (use ./Exec/NFAe_to_DFA.sh para converter o NFAε em DFA mínimo)")
     _ -> putStrLn "Uso: ./lab1_part2 \"<regex>\" output.yaml"

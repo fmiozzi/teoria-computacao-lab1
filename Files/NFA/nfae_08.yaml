@@ -1,5 +1,4 @@
-# Linguagem sobre {0,1}: cadeias que terminam em "01".
-type: nfae
+type: nfa
 alphabet: ["0", "1"]
 states: ["q0", "q1", "q2", "q3"]
 initial_state: "q0"
@@ -7,13 +6,10 @@ final_states: ["q3"]
 transitions:
   - from: "q0"
     symbol: "0"
-    to: ["q0"]
+    to: ["q2", "q1", "q0"]
   - from: "q0"
     symbol: "1"
-    to: ["q0"]
-  - from: "q0"
-    symbol: "epsilon"
-    to: ["q1"]
+    to: ["q1", "q0"]
   - from: "q1"
     symbol: "0"
     to: ["q2"]
