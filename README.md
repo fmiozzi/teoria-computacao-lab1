@@ -145,8 +145,8 @@ Para gerar o PDF também é necessária uma distribuição LaTeX com `abntex2`, 
 ## 4. Clonando o Repositório
 
 ```bash
-git clone <URL-do-repositório>
-cd lab1
+git clone https://github.com/fmiozzi/teoria-computacao-lab1.git
+cd teoria-computacao-lab1
 ```
 
 Após clonar, a estrutura de diretórios de saída já existe no repositório. Nenhum passo adicional de configuração é necessário antes de compilar.
