@@ -1,4 +1,6 @@
-# Haskell / Cabal build artifacts
+# =============================================================
+# Haskell / Cabal — artefatos de compilação
+# =============================================================
 dist-newstyle/
 .stack-work/
 *.hi
@@ -10,28 +12,31 @@ cabal.project.local
 cabal.project.local~
 .ghc.environment.*
 
-# Nix build results
+# =============================================================
+# Nix
+# =============================================================
 result
 result-*
 
-# Arquivos de saída gerados (não versionados; versionados apenas os exemplos)
-output/*.yaml
-output/*.yml
-!output/.gitkeep
+# =============================================================
+# Saídas geradas pelos programas Haskell
+# Não versionadas: reproduzíveis a qualquer momento via scripts
+# =============================================================
 
-# Temporários e backups
-*.bkp
-*.tmp
-*~
+# Parte 1 — resultados da conversão NFAε → NFA → DFA
+Files/NFA/
+Files/DFA/
 
-# Editor
-.vscode/
-.idea/
-*.swp
-.envrc
-.DS_Store
+# Parte 2 — resultados da conversão Regex → NFAε → DFA
+Files/REGEX_NFA/
+Files/REGEX_DFA/
 
-# LaTeX build artifacts
+# Saídas de conversões individuais (script NFAe_to_DFA.sh / rgx_to_dfa.sh)
+output/
+
+# =============================================================
+# LaTeX — artefatos de compilação
+# =============================================================
 doc_pdf/*.aux
 doc_pdf/*.log
 doc_pdf/*.toc
@@ -42,3 +47,23 @@ doc_pdf/*.loq
 doc_pdf/*.synctex.gz
 doc_pdf/*.fls
 doc_pdf/*.fdb_latexmk
+
+# LaTeX executado fora de doc_pdf/ (ex.: nix develop na raiz)
+texput.log
+
+# =============================================================
+# Editores e ferramentas
+# =============================================================
+.vscode/
+.idea/
+.claude/
+*.swp
+*~
+.envrc
+.DS_Store
+
+# =============================================================
+# Temporários e backups
+# =============================================================
+*.bkp
+*.tmp
