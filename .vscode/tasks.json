@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run Haskell (Nix)",
+      "label": "Compilar PDF (pdf.sh)",
       "type": "shell",
-      "command": "./run.sh",
+      "command": "./doc_pdf/pdf.sh",
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -12,6 +12,16 @@
         "kind": "build",
         "isDefault": true
       },
+      "problemMatcher": []
+    },
+    {
+      "label": "Compilar Haskell (Nix)",
+      "type": "shell",
+      "command": "nix develop --command cabal build all",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
       "problemMatcher": []
     }
   ]
