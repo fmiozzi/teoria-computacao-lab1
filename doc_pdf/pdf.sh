@@ -31,8 +31,11 @@ if [ ! -f "lab1.pdf" ]; then
 fi
 
 # Exibir apenas avisos/erros reais do log
+# "Unused global option(s): [part]" é um bug conhecido do ifes8.cls (passa part=TITLE
+# para abntex2, que não declara essa opção); inofensivo e suprimido intencionalmente.
 WARNINGS=$(grep -E "^(! |.*Warning:|.*Error:|Underfull|Overfull)" "$LOGFILE" \
   | grep -v "^Package.*Info:\|^LaTeX Font Info:\|^LaTeX Info:" \
+  | grep -v "Unused global option" \
   | grep -v "^$")
 
 echo ""
